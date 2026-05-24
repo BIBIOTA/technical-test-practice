@@ -12,7 +12,7 @@ wait-for-backend:
 	@echo "Backend is ready."
 
 test-api:
-	cd e2e/api && pip install -e . && pytest -v
+	cd e2e/api && python3 -m venv .venv && .venv/bin/pip install -e . && .venv/bin/pytest -v
 
 test-ui:
 	cd e2e/playwright && npm install && npx playwright install chromium && npx playwright test
