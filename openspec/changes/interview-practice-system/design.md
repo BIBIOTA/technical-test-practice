@@ -1,3 +1,169 @@
+## Figma Design Reference
+
+**檔案**：[Interview Practice System — Figma](https://www.figma.com/design/TJMfUV9YBE3ungBwNhxE5j)
+
+設計主題：深色系（Dark Theme），桌面版 1440×900。
+
+### 色彩規格
+
+| Token | Hex | 用途 |
+|---|---|---|
+| Background | `#0F1117` | 頁面底色 |
+| Surface | `#1A1D26` | 卡片、面板底色 |
+| Surface Elevated | `#23273A` | Header、右側面板底色 `#15172E` |
+| Primary | `#6C63FF` | 主要強調色（按鈕、選取邊框、麥克風按鈕） |
+| Primary Subtle | `#6C63FF` opacity 0.12~0.2 | 卡片選取背景、tag 背景 |
+| Teal | `#4ECDC4` | Mock Interview 強調色 |
+| Amber | `#F59E0B` | Weak Review 強調色、Medium 難度 badge |
+| Green | `#10B981` | 已完成狀態、優勢 feedback、Speaking 指示燈 |
+| Red Subtle | `#C83737` opacity 0.15 | 結束面試按鈕 |
+| Text Primary | `#E2E8F0` | 主要文字 |
+| Text Secondary | `#94A3B8` | 次要說明文字 |
+| Border | `#2D3748` | 卡片邊框 |
+
+### Page 1：Mode Selection（`src/app/page.tsx`）
+
+**畫面名稱**：`Mode Selection Screen`（1440×900）
+
+#### 結構
+
+```
+Header (64px)
+  Logo Icon (32px circle, #6C63FF) + "Interview Practice" (Semi Bold 18)
+  "Total Sessions: 42" badge (右側)
+
+Main Content (padding: 60 120px)
+  Hero Block (置中)
+    Title: "選擇面試模式" (Bold 36, #E2E8F0)
+    Subtitle (Regular 16, #94A3B8)
+
+  Mode Cards Row (三欄等寬, gap 24)
+    Card - Single      紫色 #6C63FF  選取時：2px 紫色邊框 + 0.08 opacity 背景
+    Card - Mock        青色 #4ECDC4
+    Card - Weak Review 琥珀色 #F59E0B
+
+  Controls Row (space-between)
+    Eval Provider Section
+      Label "評分模型" (Medium 13, #94A3B8)
+      Chips: OpenAI(選取) / Claude / Gemini
+        選取 chip：1.5px 紫色邊框 + 0.2 opacity 背景，文字 #C4BEFF
+        未選取 chip：1px #2D3748 邊框，背景 #23273A
+    Info Block (題庫狀態)
+      三格統計：總題數 / 已練習 / 待複習（Bold 20, #E2E8F0）
+    Start Button
+      背景 #6C63FF，borderRadius 12，padding 16 40
+      文字 "開始面試" (Semi Bold 16, white)
+```
+
+#### 每個 Mode Card 內部結構
+
+```
+Icon Box (48×48 or HUG, borderRadius 12, tagColor opacity 0.15)
+  Icon char (Bold 20, tagColor)
+Title (Semi Bold 18, #E2E8F0, width FILL)
+Description (Regular 13, #94A3B8, autoResize HEIGHT, lineHeight 150%)
+Tag Badge (borderRadius 6, tagColor opacity 0.12)
+  Label (Medium 12, tagColor)
+```
+
+---
+
+### Page 2：Interview Room（`src/app/interview/page.tsx`）
+
+兩個狀態畫面，均 1440×900：
+- **`Interview Room Screen`**：面試進行中狀態
+- **`Interview Room - Eval Result`**：評分完成狀態（評分結果 tab 啟用）
+
+#### Header（60px，兩個狀態共用結構）
+
+```
+Left:
+  Back Button ("← 返回"，#23273A 背景，borderRadius 8)
+  Divider (1×24px，#2D3748)
+  Mode Badge ("Single Mode"，#6C63FF opacity 0.15 背景，文字 #C4BEFF)
+  Q Indicator ("Q1 / 5"，Regular 14，#94A3B8)
+    ↳ 完成狀態改為 "Q1 / 5 · 完成"，文字色 #10B981
+
+Center:
+  Timer (Bold 22, #E2E8F0) — 進行中顯示 "04:32"，完成顯示 "08:14"
+  Sub label (Regular 11, #94A3B8) — "面試進行中" / "面試已完成"
+
+Right:
+  Provider Badge ("Eval: OpenAI"，#23273A 背景)
+  End Button ("結束面試"，#C83737 opacity 0.15 背景 + border)
+    ↳ 完成狀態隱藏此按鈕
+```
+
+#### 左側面板（Left Panel，width FILL）
+
+```
+padding: 32px top/bottom, 40px left, 32px right
+itemSpacing: 24
+
+Question Card (#1A1D26, borderRadius 16)
+  Question Header Row (space-between)
+    Left: "當前問題" label + Difficulty Badge (Amber) + Category Badge (Teal)
+    Right: SM-2 info text (Regular 11, #94A3B8 60%)
+  Question Text (Semi Bold 17, lineHeight 150%)
+
+[進行中] Voice Interface (#1A1D26, borderRadius 16, FILL height)
+  Avatar Row:
+    AI Avatar (80×80 circle, #6C63FF 0.2 bg + 2px stroke, "AI" Bold 28 #C4BEFF)
+    Status Info:
+      "AI 面試官" (Semi Bold 15)
+      Speaking Indicator (8px green dot + "正在聆聽..." text #10B981)
+  Sound Wave: 15 bars (6px wide, 3px radius, various heights 16-60px, #6C63FF)
+  Mic Controls Row:
+    Mute Button (#23273A, borderRadius 10)
+    Mic Button (64×64 circle, #6C63FF, "M" Bold 22 white)
+    Next Question Button (#23273A, "下一題 →")
+
+[完成] Answer Summary (#1A1D26, borderRadius 12)
+  Label: "您的回答摘要" (Medium 12, #94A3B8)
+  Answer text (Regular 13, #C5D0DE, lineHeight 160%)
+```
+
+#### 右側面板（Right Panel，width 400px fixed）
+
+```
+背景 #15172E，左側 1px 邊框 #23273A
+padding: 24，itemSpacing: 20
+
+Tab Row (#1A1D26, borderRadius 10, padding 4)
+  "對話紀錄" tab / "評分結果" tab
+  Active tab: #23273A 背景，Semi Bold 13，#E2E8F0
+  Inactive tab: 無背景，Regular 13，#94A3B8
+
+[對話紀錄 tab - 進行中]
+Transcript Section (FILL height)
+  AI message: 28px purple circle + bubble (#23273A)
+  User message: bubble (#6C63FF opacity 0.2，靠右)
+  Typing indicator: 28px purple circle + 三點 bubble
+
+[評分結果 tab - 完成]
+Eval Result Card (#1A1D26, borderRadius 16)
+  Score Row (space-between):
+    Score: Bold 48 "#6C63FF" + "/100 分 · OpenAI" Regular 12
+    SM-2 Info Block (#23273A, borderRadius 10):
+      "SM-2 更新" label
+      "下次複習: 7天後" (Semi Bold 13)
+      "EF: 2.36 → 2.50" (#10B981)
+  Divider (1px, #2D3748)
+  Dimensions Section ("各維度評分"):
+    每個維度: name text + score (Semi Bold, tagColor) + 兩層 bar (bg #23273A, fill tagColor)
+    技術深度 #6C63FF / 架構設計 #4ECDC4 / 溝通表達 #F59E0B / 問題解決 #10B981
+
+Feedback Card (#1A1D26, borderRadius 16)
+  "AI 詳細反饋" label
+  Strengths block (#10B981 opacity 0.06 bg): 綠點 + "優勢" + text
+  Improvements block (#F59E0B opacity 0.06 bg): 琥珀點 + "待改善" + text
+
+Next Question Button (#6C63FF 背景, FILL width, borderRadius 12)
+  "下一題 →" (Semi Bold 15, white)
+```
+
+---
+
 ## Context
 
 Greenfield 本機系統，單一使用者，透過 Docker Compose 執行。題庫由 Claude Code 從 Notion 手動匯入 PostgreSQL。語音面試透過 OpenAI Realtime API + WebRTC 實作，評分層支援 OpenAI / Claude / Gemini 三個 provider。系統需根據 SM-2 間隔複習算法選題。

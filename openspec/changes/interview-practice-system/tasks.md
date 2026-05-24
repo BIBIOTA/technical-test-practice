@@ -57,6 +57,7 @@
 - [ ] 7.1 初始化 Next.js 專案（TypeScript、App Router、Tailwind CSS）
 - [ ] 7.2 建立 src/lib/api.ts（所有 backend API 呼叫函數，含 Bearer token header）
 - [ ] 7.3 建立環境變數設定（NEXT_PUBLIC_API_URL、INTERVIEW_TOKEN）
+- [ ] 7.4 設定 Tailwind 主題色彩 token（依 design.md「色彩規格」表，使用 CSS variables）
 
 ## 8. Realtime Client
 
@@ -69,12 +70,43 @@
 
 ## 9. Frontend UI
 
-- [ ] 9.1 建立 src/app/page.tsx（模式選擇：single / mock / weak_review，eval_provider 選擇）
-- [ ] 9.2 建立 src/app/interview/page.tsx（面試主畫面，整合 InterviewRoom）
-- [ ] 9.3 建立 src/components/InterviewRoom.tsx（管理 WebRTC 生命週期、session 狀態）
-- [ ] 9.4 建立 src/components/TranscriptPanel.tsx（即時顯示 AI 和使用者的 transcript）
-- [ ] 9.5 建立 src/components/EvalResultCard.tsx（顯示 score、summary、missing_points、next_focus）
-- [ ] 9.6 實作麥克風權限請求與錯誤提示
+> **設計稿**：[Figma — Interview Practice System](https://www.figma.com/design/TJMfUV9YBE3ungBwNhxE5j)
+> 詳細色彩規格、間距與元件結構請見 `design.md` 的「Figma Design Reference」段落。
+
+- [ ] 9.1 建立 `src/app/page.tsx`（Mode Selection 頁）
+  - Figma 參考：Page 1「Mode Selection Screen」
+  - Header：Logo icon + App 名稱 + Session 總數
+  - 三個 Mode Card（Single / Mock / Weak Review）水平排列，選取時顯示紫色邊框
+  - 底部 Controls Row：Eval Provider chip 選擇器 + 題庫統計 + 開始面試按鈕
+  - State：`selectedMode`、`evalProvider` 選取高亮
+
+- [ ] 9.2 建立 `src/app/interview/page.tsx`（Interview Room 頁）
+  - Figma 參考：Page 2「Interview Room Screen」（進行中狀態）與「Interview Room - Eval Result」（完成狀態）
+  - 整合 InterviewRoom、TranscriptPanel、EvalResultCard
+  - 管理頁面層級 state：session 物件、當前題目、activeTab（"transcript" | "eval"）
+
+- [ ] 9.3 建立 `src/components/InterviewRoom.tsx`
+  - Figma 參考：Page 2 左側面板（Left Panel）
+  - Question Card：題目文字 + Difficulty Badge（Amber）+ Category Badge（Teal）+ SM-2 資訊
+  - Voice Interface（進行中）：AI Avatar（80px circle）+ Sound Wave 動畫 bars + 靜音/麥克風/下一題按鈕
+  - Answer Summary（完成）：顯示使用者回答摘要文字
+  - Header：返回按鈕 + Mode badge + Q 計數 + 計時器 + Eval badge + 結束面試按鈕
+
+- [ ] 9.4 建立 `src/components/TranscriptPanel.tsx`
+  - Figma 參考：Page 2 右側面板，「對話紀錄」tab
+  - AI 訊息：左側 28px 紫色圓形 + 深色氣泡（#23273A）
+  - User 訊息：右對齊，紫色半透明氣泡（#6C63FF opacity 0.2）
+  - Typing indicator：三點動畫 bubble
+  - Tab row（與 EvalResultCard 共用）：對話紀錄 / 評分結果
+
+- [ ] 9.5 建立 `src/components/EvalResultCard.tsx`
+  - Figma 參考：Page 2 右側面板，「評分結果」tab
+  - Score 大字（Bold 48, #6C63FF）+ 評分模型來源 + SM-2 更新 block
+  - 四維度進度條（技術深度 / 架構設計 / 溝通表達 / 問題解決），各維度有對應色
+  - AI 詳細反饋：優勢區塊（綠色）/ 待改善區塊（琥珀色）
+  - 「下一題 →」按鈕（FILL 寬度，#6C63FF 背景）
+
+- [ ] 9.6 實作麥克風權限請求與錯誤提示（覆蓋在 Voice Interface 上方的 modal/toast）
 
 ## 10. 整合測試
 
