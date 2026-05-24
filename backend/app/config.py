@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
     default_eval_provider: str = "openai"
+    evaluation_offline_mode: bool = False
 
 
 settings = Settings()

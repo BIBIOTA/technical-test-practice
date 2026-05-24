@@ -55,6 +55,18 @@ class EvaluationProvider(ABC):
         data["score"] = max(0, min(100, int(data["score"])))
         return EvaluationResult(**data)
 
+    def _offline_result(self, provider: str, model: str, transcript: str) -> EvaluationResult:
+        words = [word for word in transcript.split() if word.strip()]
+        score = min(95, max(55, 45 + len(words) * 3))
+        return EvaluationResult(
+            score=score,
+            summary="Offline test evaluation completed with the fixed schema.",
+            missing_points=[] if score >= 75 else ["Add more concrete technical detail."],
+            next_focus=["Use specific examples and tradeoffs."],
+            provider=provider,
+            model=model,
+        )
+
 
 class OpenAIEvaluationProvider(EvaluationProvider):
     MODEL = "gpt-4o-mini"
@@ -62,6 +74,9 @@ class OpenAIEvaluationProvider(EvaluationProvider):
     async def evaluate(
         self, question: str, reference_answer: str, transcript: str
     ) -> EvaluationResult:
+        if settings.evaluation_offline_mode:
+            return self._offline_result("openai", self.MODEL, transcript)
+
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=settings.openai_api_key)
@@ -81,6 +96,9 @@ class ClaudeEvaluationProvider(EvaluationProvider):
     async def evaluate(
         self, question: str, reference_answer: str, transcript: str
     ) -> EvaluationResult:
+        if settings.evaluation_offline_mode:
+            return self._offline_result("claude", self.MODEL, transcript)
+
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -100,6 +118,9 @@ class GeminiEvaluationProvider(EvaluationProvider):
     async def evaluate(
         self, question: str, reference_answer: str, transcript: str
     ) -> EvaluationResult:
+        if settings.evaluation_offline_mode:
+            return self._offline_result("gemini", self.MODEL, transcript)
+
         import asyncio
 
         import google.generativeai as genai

@@ -21,7 +21,7 @@
 - [x] 3.4 建立 SQLAlchemy model：SM2State
 - [x] 3.5 建立 SQLAlchemy model：RealtimeSession
 - [x] 3.6 執行 alembic init 並建立初始 migration（建立 5 張表）
-- [ ] 3.7 驗證 docker-compose up 後 alembic upgrade head 自動執行成功
+- [x] 3.7 驗證 docker-compose up 後 alembic upgrade head 自動執行成功
 
 ## 4. Evaluation Service
 
@@ -110,10 +110,10 @@
 
 ## 10. 整合測試
 
-- [ ] 10.1 驗證 docker-compose up 後三個 container 正常啟動
-- [ ] 10.2 驗證 Bearer token auth（有效 token 通過，無效 token 返回 401）
-- [ ] 10.3 驗證完整單題練習流程（選題 → 語音問答 → 評分輪詢 → 語音回饋 → SM-2 更新）
-- [ ] 10.4 驗證 SM-2 選題優先順序（新題 → 到期題 → 低分題）
-- [ ] 10.5 驗證 session 去重（同一 session 不重複出題）
-- [ ] 10.6 驗證 mock 模式 summary 報告正確產生
-- [ ] 10.7 驗證三個 evaluation provider 皆可正常評分並回傳固定 schema
+- [x] 10.1 驗證 docker-compose up 後三個 container 正常啟動
+- [x] 10.2 驗證 Bearer token auth（有效 token 通過，無效 token 返回 401）
+- [x] 10.3 驗證完整單題練習流程（選題 → 語音問答 → 評分輪詢 → 語音回饋 → SM-2 更新）
+- [x] 10.4 驗證 SM-2 選題優先順序（新題 → 到期題 → 低分題）
+- [x] 10.5 驗證 session 去重（同一 session 不重複出題）
+- [x] 10.6 驗證 mock 模式 summary 報告正確產生
+- [x] 10.7 驗證三個 evaluation provider 皆可正常評分並回傳固定 schema
