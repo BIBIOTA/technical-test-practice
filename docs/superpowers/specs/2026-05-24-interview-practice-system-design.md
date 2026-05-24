@@ -57,7 +57,7 @@ Evaluation Providers (外部):
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | id | UUID PK | |
-| notion_id | TEXT UNIQUE | 防重複匯入 |
+| notion_id | TEXT UNIQUE NULLABLE | 防重複匯入；直接新增的題目可為 null |
 | text | TEXT | 題目內容 |
 | category | TEXT | e.g. system-design, backend |
 | difficulty | TEXT | easy \| medium \| hard |
@@ -129,6 +129,7 @@ Evaluation Providers (外部):
 |--------|------|------|
 | POST | /sessions | 建立 interview_session |
 | POST | /sessions/{id}/complete | 結束 session |
+| GET | /sessions/{id}/summary | 取得本次 session 整體報告（mock 模式用） |
 | POST | /realtime/client-secret | 產生 OpenAI ephemeral token |
 | GET | /questions/next | SM-2 選題（供 AI tool call） |
 | POST | /attempts | mark_answer_completed（供 AI tool call） |
@@ -273,10 +274,13 @@ def update_sm2(state: SM2State, score: int) -> SM2State:
 ### 選題 SQL
 ```sql
 SELECT q.* FROM questions q
-JOIN sm2_states s ON s.question_id = q.id
+LEFT JOIN sm2_states s ON s.question_id = q.id
 WHERE q.category = :category      -- 可選過濾
   AND q.difficulty = :difficulty  -- 可選過濾
 ORDER BY
+  -- 無 sm2_state 的新題目最優先
+  CASE WHEN s.id IS NULL THEN 0 ELSE 1 END,
+  -- 已到複習時間的題目優先
   CASE WHEN s.next_review_at <= NOW() THEN 0 ELSE 1 END,
   s.next_review_at ASC,
   s.last_score ASC NULLS FIRST
