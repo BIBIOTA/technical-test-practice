@@ -17,7 +17,7 @@ export interface ParsedError {
 export function parseConnectionError(err: unknown): ParsedError {
   if (err instanceof ApiError) {
     if (err.status === 429) {
-      return { title: "連線發生錯誤", message: "API 使用額度不足，請前往 OpenAI 平台充值後再試。" };
+      return { title: "連線發生錯誤", message: "語音功能固定使用 OpenAI API，目前使用額度不足，請前往 OpenAI 平台充值後再試。" };
     }
     if (err.status === 404) {
       return { title: "連線發生錯誤", message: "指定的 AI 模型不存在，請聯絡管理員。" };
