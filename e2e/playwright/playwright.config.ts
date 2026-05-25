@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: "line",
   use: {
-    baseURL: "http://localhost:3001",
+    baseURL: process.env.BASE_URL ?? "http://localhost:3001",
     trace: "on-first-retry",
   },
   projects: [

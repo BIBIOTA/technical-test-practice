@@ -28,6 +28,22 @@ async function grantMicrophone(page: import("@playwright/test").Page) {
 }
 
 async function mockRealtimeStartup(page: import("@playwright/test").Page) {
+  // Stub RTCPeerConnection so connect() resolves without real WebRTC or network
+  await page.addInitScript(() => {
+    class FakeRTCPeerConnection {
+      ontrack: ((e: RTCTrackEvent) => void) | null = null;
+      createDataChannel() {
+        return { onmessage: null, readyState: "open", send() {}, close() {} };
+      }
+      addTrack() {}
+      async createOffer() { return { type: "offer" as RTCSdpType, sdp: "v=0\r\n" }; }
+      async setLocalDescription() {}
+      async setRemoteDescription() {}
+      close() {}
+    }
+    (window as unknown as Record<string, unknown>).RTCPeerConnection = FakeRTCPeerConnection;
+  });
+
   await page.route("**/realtime/client-secret", async (route) => {
     await route.fulfill({
       status: 200,
@@ -40,8 +56,9 @@ async function mockRealtimeStartup(page: import("@playwright/test").Page) {
     });
   });
 
-  await page.route("https://api.openai.com/v1/realtime**", async (route) => {
-    await route.fulfill({ status: 500, body: "blocked in e2e" });
+  // Mock the SDP exchange so connect() succeeds instead of throwing
+  await page.route("https://api.openai.com/v1/realtime/calls", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/sdp", body: "v=0\r\n" });
   });
 }
 
