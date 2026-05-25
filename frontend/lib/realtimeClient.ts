@@ -20,6 +20,7 @@ export interface RealtimeCallbacks {
 export class RealtimeClient {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
+  private micStream: MediaStream | null = null;
   private sessionId: string;
   private mode: string;
   private callbacks: RealtimeCallbacks;
@@ -47,8 +48,8 @@ export class RealtimeClient {
     };
 
     // Microphone input
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => this.pc!.addTrack(track, stream));
+    this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.micStream.getTracks().forEach((track) => this.pc!.addTrack(track, this.micStream!));
 
     // Data channel for events
     this.dc = this.pc.createDataChannel("oai-events");
@@ -84,6 +85,8 @@ export class RealtimeClient {
   }
 
   disconnect(): void {
+    this.micStream?.getTracks().forEach((t) => t.stop());
+    this.micStream = null;
     this.dc?.close();
     this.pc?.close();
     this.pc = null;

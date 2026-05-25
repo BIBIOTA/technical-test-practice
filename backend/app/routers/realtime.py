@@ -36,24 +36,27 @@ async def create_client_secret(
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     try:
-        response = await client.beta.realtime.sessions.create(
-            model="gpt-4o-realtime-preview",
-            voice="alloy",
-            instructions=_build_system_prompt(session.mode),
-            tools=_get_tools(),
-            tool_choice="auto",
-            turn_detection={"type": "server_vad"},
+        response = await client.realtime.client_secrets.create(
+            session={
+                "type": "realtime",
+                "model": "gpt-realtime-2025-08-28",
+                "instructions": _build_system_prompt(session.mode),
+                "tools": _get_tools(),
+                "tool_choice": "auto",
+                "audio": {"output": {"voice": "alloy"}},
+            }
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
 
     expires_at = None
-    if hasattr(response, "expires_at") and response.expires_at:
-        expires_at = datetime.fromtimestamp(response.expires_at, tz=timezone.utc)
+    cs_expires = getattr(response.client_secret, "expires_at", None)
+    if cs_expires:
+        expires_at = datetime.fromtimestamp(cs_expires, tz=timezone.utc)
 
     rt_session = RealtimeSession(
         session_id=body.session_id,
-        openai_session_id=response.id,
+        openai_session_id=response.session.id,
         expires_at=expires_at,
     )
     db.add(rt_session)
@@ -62,7 +65,7 @@ async def create_client_secret(
     return {
         "client_secret": response.client_secret.value,
         "expires_at": expires_at.isoformat() if expires_at else None,
-        "openai_session_id": response.id,
+        "openai_session_id": response.session.id,
     }
 
 

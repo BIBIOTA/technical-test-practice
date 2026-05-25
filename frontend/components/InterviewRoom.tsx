@@ -6,6 +6,7 @@ import type { RealtimeClient } from "../lib/realtimeClient";
 
 interface Props {
   client: RealtimeClient | null;
+  stream: MediaStream | null;
   currentQuestion: NextQuestion | null;
   questionIndex: number;
   totalQuestions: number;
@@ -36,14 +37,51 @@ export default function InterviewRoom({
   elapsedSeconds,
   mode,
   evalProvider,
+  stream,
 }: Props) {
   const [isMuted, setIsMuted] = useState(false);
-  const [waveActive, setWaveActive] = useState(true);
+  const [barHeights, setBarHeights] = useState(SOUND_WAVE_HEIGHTS);
+  const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setWaveActive((v) => !v), 500);
-    return () => clearInterval(interval);
-  }, []);
+    if (!stream) return;
+
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.75;
+    source.connect(analyser);
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    // Map voice-range frequencies (up to ~4kHz) to our bars
+    const voiceBins = Math.round((4000 / (audioCtx.sampleRate / 2)) * analyser.frequencyBinCount);
+    const numBars = SOUND_WAVE_HEIGHTS.length;
+
+    const tick = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const binStep = voiceBins / numBars;
+      const newHeights = SOUND_WAVE_HEIGHTS.map((maxH, i) => {
+        const start = Math.floor(i * binStep);
+        const end = Math.ceil((i + 1) * binStep);
+        let sum = 0;
+        for (let j = start; j < end && j < voiceBins; j++) sum += dataArray[j];
+        const avg = sum / Math.max(end - start, 1);
+        const minH = maxH * 0.12;
+        return minH + (maxH - minH) * (avg / 255);
+      });
+      setBarHeights(newHeights);
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      source.disconnect();
+      audioCtx.close();
+    };
+  }, [stream]);
 
   const modeBadgeColor = mode === "single" ? "#6C63FF" : mode === "mock" ? "#4ECDC4" : "#F59E0B";
   const modeLabel =
@@ -197,15 +235,15 @@ export default function InterviewRoom({
 
             {/* Sound Wave */}
             <div className="flex items-center justify-center gap-1 py-4">
-              {SOUND_WAVE_HEIGHTS.map((h, i) => (
+              {barHeights.map((h, i) => (
                 <div
                   key={i}
-                  className="rounded-sm transition-all duration-300"
                   style={{
                     width: 6,
-                    height: waveActive ? h : h * 0.5,
+                    height: Math.round(h),
                     background: "var(--color-primary)",
                     borderRadius: 3,
+                    transition: "height 60ms ease",
                   }}
                 />
               ))}

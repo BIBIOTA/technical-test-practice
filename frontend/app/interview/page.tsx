@@ -34,6 +34,7 @@ function InterviewContent() {
   const [answerSummary, setAnswerSummary] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [micStatus, setMicStatus] = useState<MicStatus>("idle");
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>("disconnected");
   const [fatalError, setFatalError] = useState<(ParsedError & { isNetwork: boolean }) | null>(null);
   const [toastError, setToastError] = useState<ToastError | null>(null);
@@ -55,7 +56,8 @@ function InterviewContent() {
   async function startSession() {
     setMicStatus("requesting");
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicStream(stream);
       setMicStatus("granted");
     } catch {
       setMicStatus("denied");
@@ -100,6 +102,8 @@ function InterviewContent() {
 
   async function handleEndSession() {
     clientRef.current?.disconnect();
+    micStream?.getTracks().forEach((t) => t.stop());
+    setMicStream(null);
     await completeSession(sessionId).catch(() => {});
     router.push("/");
   }
@@ -228,6 +232,7 @@ function InterviewContent() {
         <div className="flex-1 overflow-hidden flex flex-col" style={{ borderRight: "1px solid var(--color-border)" }}>
           <InterviewRoom
             client={clientRef.current}
+            stream={micStream}
             currentQuestion={currentQuestion}
             questionIndex={questionIndex}
             totalQuestions={0}
