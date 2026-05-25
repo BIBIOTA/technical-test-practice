@@ -53,24 +53,24 @@ test("clicking start session navigates to interview page", async ({ page }) => {
   await expect(page).toHaveURL(/\/interview\?session_id=test-session-uuid-1234/);
 });
 
-test("API failure on start shows alert", async ({ page }) => {
+test("API failure on start shows inline error banner (no alert)", async ({ page }) => {
   await page.route("**/sessions", async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({ status: 500, body: "Internal Server Error" });
       return;
     }
-
     await route.continue();
   });
 
-  let alertMessage = "";
+  let alertFired = false;
   page.on("dialog", async (dialog) => {
-    alertMessage = dialog.message();
+    alertFired = true;
     await dialog.dismiss();
   });
 
   await page.goto("/");
   await page.locator("button").filter({ hasText: "開始面試" }).click();
 
-  await expect.poll(() => alertMessage).toContain("無法建立 session");
+  await expect(page.locator("text=伺服器發生錯誤")).toBeVisible();
+  expect(alertFired).toBe(false);
 });

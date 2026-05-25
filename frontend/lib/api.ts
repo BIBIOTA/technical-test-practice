@@ -1,5 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const TOKEN = process.env.INTERVIEW_TOKEN ?? "";
+import { ApiError } from "./errors";
+
+const API_URL = "/api";
+const TOKEN = process.env.NEXT_PUBLIC_INTERVIEW_TOKEN ?? process.env.INTERVIEW_TOKEN ?? "";
 
 function authHeaders(): HeadersInit {
   return {
@@ -15,7 +17,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API ${res.status}: ${text}`);
+    throw new ApiError(res.status, `HTTP_${res.status}`, `API ${res.status}: ${text}`);
   }
   return res.json() as Promise<T>;
 }

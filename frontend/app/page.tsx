@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSession } from "../lib/api";
+import { parseConnectionError } from "../lib/errors";
 
 const MODES = [
   {
@@ -39,8 +40,10 @@ export default function HomePage() {
   const [selectedMode, setSelectedMode] = useState<string>("single");
   const [evalProvider, setEvalProvider] = useState<Provider>("openai");
   const [loading, setLoading] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   async function handleStart() {
+    setSessionError(null);
     setLoading(true);
     try {
       const session = await createSession(selectedMode, evalProvider);
@@ -48,7 +51,8 @@ export default function HomePage() {
         `/interview?session_id=${session.session_id}&mode=${selectedMode}&provider=${evalProvider}`
       );
     } catch (err) {
-      alert("無法建立 session，請確認後端已啟動。\n" + String(err));
+      const { message } = parseConnectionError(err);
+      setSessionError(message);
     } finally {
       setLoading(false);
     }
@@ -142,8 +146,9 @@ export default function HomePage() {
           })}
         </div>
 
-        {/* Controls Row */}
-        <div className="flex items-center justify-between w-full max-w-4xl">
+        {/* Controls Row + Error Banner */}
+        <div className="flex flex-col w-full max-w-4xl gap-3">
+        <div className="flex items-center justify-between w-full">
           {/* Eval Provider */}
           <div>
             <p
@@ -191,6 +196,22 @@ export default function HomePage() {
           >
             {loading ? "建立中..." : "開始面試"}
           </button>
+        </div>
+
+        {/* Inline error banner */}
+        {sessionError && (
+          <div
+            className="w-full px-4 py-3 text-sm"
+            style={{
+              background: "#F0444414",
+              border: "1px solid #F0444440",
+              borderRadius: 10,
+              color: "var(--color-text-primary)",
+            }}
+          >
+            {sessionError}
+          </div>
+        )}
         </div>
       </main>
     </div>

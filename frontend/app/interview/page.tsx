@@ -3,13 +3,19 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import EvalResultCard from "../../components/EvalResultCard";
+import ErrorOverlay from "../../components/ErrorOverlay";
 import InterviewRoom from "../../components/InterviewRoom";
 import TranscriptPanel from "../../components/TranscriptPanel";
 import { completeSession, type EvaluationResult, type NextQuestion } from "../../lib/api";
+import { parseConnectionError, type ParsedError } from "../../lib/errors";
 import { RealtimeClient, type TranscriptMessage } from "../../lib/realtimeClient";
 
 type Tab = "transcript" | "eval";
 type MicStatus = "idle" | "requesting" | "granted" | "denied";
+
+interface ToastError extends ParsedError {
+  severity: "warning" | "error";
+}
 
 function InterviewContent() {
   const router = useRouter();
@@ -29,12 +35,21 @@ function InterviewContent() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [micStatus, setMicStatus] = useState<MicStatus>("idle");
   const [connectionStatus, setConnectionStatus] = useState<string>("disconnected");
+  const [fatalError, setFatalError] = useState<(ParsedError & { isNetwork: boolean }) | null>(null);
+  const [toastError, setToastError] = useState<ToastError | null>(null);
 
   // Timer
   useEffect(() => {
     const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-dismiss toast after 8 000 ms
+  useEffect(() => {
+    if (!toastError) return;
+    const timer = setTimeout(() => setToastError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [toastError]);
 
   // Request mic and connect
   async function startSession() {
@@ -67,14 +82,18 @@ function InterviewContent() {
         setActiveTab("eval");
       },
       onStatusChange: setConnectionStatus,
-      onError: (msg) => console.error("Realtime error:", msg),
+      onError: (msg) => {
+        const parsed = parseConnectionError(new Error(msg));
+        setToastError({ ...parsed, severity: "warning" });
+      },
     });
 
     clientRef.current = client;
     try {
       await client.connect();
     } catch (err) {
-      console.error("Failed to connect:", err);
+      const parsed = parseConnectionError(err);
+      setFatalError({ ...parsed, isNetwork: err instanceof TypeError });
       setConnectionStatus("error");
     }
   }
@@ -94,6 +113,65 @@ function InterviewContent() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "var(--color-bg)" }}>
+      {/* Fatal error overlay */}
+      {fatalError && (
+        <ErrorOverlay
+          title={fatalError.title}
+          message={fatalError.message}
+          isNetwork={fatalError.isNetwork}
+          onRetry={() => { setFatalError(null); startSession(); }}
+          onGoHome={() => router.push("/")}
+        />
+      )}
+
+      {/* Toast */}
+      {toastError && (
+        <div
+          className="fixed z-50 flex items-start gap-3 rounded-xl shadow-lg"
+          style={{
+            top: 24,
+            right: 24,
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            maxWidth: 360,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            className="w-1 self-stretch flex-shrink-0"
+            style={{ background: toastError.severity === "warning" ? "#F59E0B" : "#F04444" }}
+          />
+          <div className="flex items-start gap-3 p-4 pr-5">
+            <div
+              className="w-5 h-5 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
+              style={{ background: `${toastError.severity === "warning" ? "#F59E0B" : "#F04444"}26` }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path
+                  d="M6 1.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM6 8.25a.75.75 0 110-1.5.75.75 0 010 1.5zm.5-3.25a.5.5 0 01-1 0V3.5a.5.5 0 011 0V5z"
+                  fill={toastError.severity === "warning" ? "#F59E0B" : "#F04444"}
+                />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-1 flex-1">
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                {toastError.title}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                {toastError.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setToastError(null)}
+              className="text-xs flex-shrink-0 mt-0.5"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mic permission overlay */}
       {micStatus === "idle" && (
         <div className="absolute inset-0 z-50 flex items-center justify-center"
