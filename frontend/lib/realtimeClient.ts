@@ -1,6 +1,7 @@
 "use client";
 
 import { createAttempt, createClientSecret, getAttemptSummary, getNextQuestion, pollAttemptResult } from "./api";
+import { ApiError } from "./errors";
 
 export interface TranscriptMessage {
   role: "ai" | "user";
@@ -58,19 +59,20 @@ export class RealtimeClient {
     await this.pc.setLocalDescription(offer);
 
     const sdpRes = await fetch(
-      "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview",
+      "https://api.openai.com/v1/realtime/calls",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${client_secret}`,
           "Content-Type": "application/sdp",
+          "Accept": "application/sdp",
         },
         body: offer.sdp,
       }
     );
 
     if (!sdpRes.ok) {
-      throw new Error(`OpenAI WebRTC error: ${sdpRes.status}`);
+      throw new ApiError(sdpRes.status, `HTTP_${sdpRes.status}`, `OpenAI WebRTC error: ${sdpRes.status}`);
     }
 
     const answer: RTCSessionDescriptionInit = {
