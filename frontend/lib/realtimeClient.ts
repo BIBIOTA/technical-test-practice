@@ -182,6 +182,7 @@ export class RealtimeClient {
           args.difficulty,
           this.pinnedQuestionId ?? undefined
         );
+        this.pinnedQuestionId = null;
         this.currentQuestionId = q.question_id;
         this.completedUserTranscripts = [];
         this.callbacks.onQuestion({
