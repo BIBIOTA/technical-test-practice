@@ -4,9 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_db, verify_token
+from app.services.sm2 import list_questions as sm2_list_questions
 from app.services.sm2 import select_next_question
 
 router = APIRouter(prefix="/questions", tags=["questions"])
+
+
+@router.get("")
+async def get_questions(
+    category: str | None = None,
+    difficulty: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(verify_token),
+) -> list[dict]:
+    return await sm2_list_questions(db, category=category, difficulty=difficulty)
 
 
 @router.get("/next")

@@ -120,3 +120,51 @@ async def select_next_question(
     if row is None:
         return None
     return dict(row)
+
+
+async def list_questions(
+    db: AsyncSession,
+    category: str | None = None,
+    difficulty: str | None = None,
+) -> list[dict]:
+    filters = ["1=1"]
+    params: dict = {}
+
+    if category:
+        filters.append("q.category = :category")
+        params["category"] = category
+
+    if difficulty:
+        filters.append("q.difficulty = :difficulty")
+        params["difficulty"] = difficulty
+
+    where_clause = " AND ".join(filters)
+
+    query = text(f"""
+        SELECT
+            q.id,
+            q.text,
+            q.category,
+            q.difficulty,
+            q.tags,
+            s.last_score
+        FROM questions q
+        LEFT JOIN sm2_states s ON s.question_id = q.id
+        WHERE {where_clause}
+        ORDER BY q.category, q.difficulty
+    """)
+
+    result = await db.execute(query, params)
+    rows = result.mappings().all()
+
+    return [
+        {
+            "question_id": str(row["id"]),
+            "question_text": row["text"],
+            "category": row["category"],
+            "difficulty": row["difficulty"],
+            "tags": row["tags"] or [],
+            "sm2": {"last_score": row["last_score"]},
+        }
+        for row in rows
+    ]
