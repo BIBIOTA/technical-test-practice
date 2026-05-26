@@ -23,6 +23,7 @@ function InterviewContent() {
   const sessionId = params.get("session_id") ?? "";
   const mode = params.get("mode") ?? "single";
   const provider = params.get("provider") ?? "openai";
+  const questionId = params.get("question_id") ?? undefined;
 
   const clientRef = useRef<RealtimeClient | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("transcript");
@@ -109,7 +110,7 @@ function InterviewContent() {
         const parsed = parseConnectionError(new Error(msg));
         setToastError({ ...parsed, severity: "warning" });
       },
-    });
+    }, { pinnedQuestionId: questionId });
 
     clientRef.current = client;
     try {
