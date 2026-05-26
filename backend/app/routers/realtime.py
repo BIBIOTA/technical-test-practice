@@ -37,15 +37,7 @@ async def create_client_secret(
 
     try:
         response = await client.realtime.client_secrets.create(
-            session={
-                "type": "realtime",
-                "model": "gpt-realtime-2025-08-28",
-                "instructions": _build_system_prompt(session.mode),
-                "tools": _get_tools(),
-                "tool_choice": "auto",
-                "audio": {"output": {"voice": "alloy"}},
-                "input_audio_transcription": {"model": "whisper-1"},
-            }
+            session=_build_realtime_session_config(session.mode)
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
@@ -81,18 +73,18 @@ def _build_system_prompt(mode: str) -> str:
 2. 每次只問一個問題，等待應試者完整回答
 3. 絕對不透露參考答案
 4. 若應試者主動要求提示，僅提供方向性提示
-5. 應試者表示回答完畢後，呼叫 mark_answer_completed tool 記錄答案
+5. 應試者表示回答完畢後，呼叫 mark_answer_completed tool 記錄答案，transcript 必須保留應試者原本的繁體中文，不可翻譯成英文
 6. 評分完成後，呼叫 get_evaluation_summary 取得評分結果，並以語音向應試者說明
 
 工作流程：
 1. 呼叫 get_next_question 取得題目
 2. 以語音念出題目
 3. 等待應試者回答
-4. 應試者說「回答完畢」或類似語句後，呼叫 mark_answer_completed
+4. 應試者說「回答完畢」或類似語句後，呼叫 mark_answer_completed，並以原文中文填入 transcript
 5. 告知應試者正在評分（等待 AI 評分中）
 6. 約10秒後呼叫 get_evaluation_summary 確認評分完成
 7. 若評分未完成，每5秒重試一次，最多30秒
-8. 以語音播報評分結果
+8. 以繁體中文語音播報評分結果，內容包含 AI 詳細反饋、待改善、優勢 / 下一步、正確完整回答建議
 9. 詢問是否繼續下一題"""
 
 
@@ -130,7 +122,7 @@ def _get_tools() -> list[dict]:
                     "question_id": {"type": "string", "description": "Question UUID"},
                     "transcript": {
                         "type": "string",
-                        "description": "Candidate's answer transcript",
+                        "description": "Candidate's answer transcript in the original language; preserve Traditional Chinese and do not translate to English.",
                     },
                 },
                 "required": ["session_id", "question_id", "transcript"],
@@ -139,7 +131,7 @@ def _get_tools() -> list[dict]:
         {
             "type": "function",
             "name": "get_evaluation_summary",
-            "description": "取得評分結果摘要，供 AI 以語音播報給應試者",
+            "description": "取得繁體中文評分結果摘要，供 AI 以語音播報給應試者，包含 summary、missing_points、next_focus、ideal_answer",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -149,3 +141,19 @@ def _get_tools() -> list[dict]:
             },
         },
     ]
+
+
+def _build_realtime_session_config(mode: str) -> dict:
+    return {
+        "type": "realtime",
+        "model": "gpt-realtime-2025-08-28",
+        "instructions": _build_system_prompt(mode),
+        "tools": _get_tools(),
+        "tool_choice": "auto",
+        "audio": {
+            "input": {
+                "transcription": {"model": "whisper-1", "language": "zh"},
+            },
+            "output": {"voice": "alloy"},
+        },
+    }

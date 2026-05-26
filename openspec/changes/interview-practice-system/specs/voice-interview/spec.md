@@ -46,7 +46,7 @@ The Realtime agent SHALL use tool calls to interact with the backend: get_next_q
 
 #### Scenario: get_evaluation_summary tool call
 - **WHEN** AI calls get_evaluation_summary with attempt_id after polling completes
-- **THEN** backend returns score, summary, missing_points, next_focus
+- **THEN** backend returns score, summary, missing_points, next_focus, ideal_answer
 
 ### Requirement: AI interviewer persona
 The Realtime agent SHALL behave as a Senior Backend Engineer interviewer using Traditional Chinese, asking one question at a time, not revealing reference answers, and providing only directional hints when requested.

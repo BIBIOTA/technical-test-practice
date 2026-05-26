@@ -12,9 +12,17 @@ export interface TranscriptMessage {
 export interface RealtimeCallbacks {
   onTranscript: (msg: TranscriptMessage) => void;
   onQuestion: (question: { question_id: string; question_text: string; category: string; difficulty: string }) => void;
-  onEvalResult: (result: { score: number; summary: string; missing_points: string[]; next_focus: string[] }) => void;
+  onEvalResult: (result: EvaluationSummary) => void;
   onStatusChange: (status: "connecting" | "connected" | "disconnected" | "error") => void;
   onError: (msg: string) => void;
+}
+
+interface EvaluationSummary {
+  score: number;
+  summary: string;
+  missing_points: string[];
+  next_focus: string[];
+  ideal_answer?: string;
 }
 
 export class RealtimeClient {
@@ -26,6 +34,7 @@ export class RealtimeClient {
   private callbacks: RealtimeCallbacks;
   private currentAttemptId: string | null = null;
   private currentQuestionId: string | null = null;
+  private completedUserTranscripts: string[] = [];
 
   constructor(sessionId: string, mode: string, callbacks: RealtimeCallbacks) {
     this.sessionId = sessionId;
@@ -113,14 +122,24 @@ export class RealtimeClient {
   private async handleServerEvent(event: Record<string, unknown>): Promise<void> {
     const type = event.type as string;
 
-    if (type === "response.audio_transcript.delta") {
+    if (type === "response.output_audio_transcript.delta" || type === "response.audio_transcript.delta") {
       const delta = event.delta as string;
       this.callbacks.onTranscript({ role: "ai", text: delta, isTyping: true });
     }
 
-    if (type === "response.audio_transcript.done") {
+    if (type === "response.output_audio_transcript.done" || type === "response.audio_transcript.done") {
       const transcript = event.transcript as string;
       this.callbacks.onTranscript({ role: "ai", text: transcript });
+    }
+
+    if (type === "response.output_text.delta") {
+      const delta = event.delta as string;
+      this.callbacks.onTranscript({ role: "ai", text: delta, isTyping: true });
+    }
+
+    if (type === "response.output_text.done") {
+      const text = (event.text ?? event.transcript) as string;
+      this.callbacks.onTranscript({ role: "ai", text });
     }
 
     if (type === "input_audio_buffer.speech_started") {
@@ -129,7 +148,10 @@ export class RealtimeClient {
 
     if (type === "conversation.item.input_audio_transcription.completed") {
       const transcript = event.transcript as string;
-      this.callbacks.onTranscript({ role: "user", text: transcript });
+      if (transcript.trim()) {
+        this.completedUserTranscripts.push(transcript.trim());
+        this.callbacks.onTranscript({ role: "user", text: transcript });
+      }
     }
 
     if (type === "response.function_call_arguments.done") {
@@ -153,6 +175,7 @@ export class RealtimeClient {
           args.difficulty
         );
         this.currentQuestionId = q.question_id;
+        this.completedUserTranscripts = [];
         this.callbacks.onQuestion({
           question_id: q.question_id,
           question_text: q.question_text,
@@ -161,12 +184,15 @@ export class RealtimeClient {
         });
         output = q;
       } else if (name === "mark_answer_completed") {
+        const capturedTranscript = this.completedUserTranscripts.join(" ").trim();
+        const transcript = capturedTranscript || String(args.transcript ?? "").trim();
         const attempt = await createAttempt(
           this.sessionId,
           args.question_id ?? this.currentQuestionId ?? "",
-          args.transcript ?? ""
+          transcript
         );
         this.currentAttemptId = attempt.attempt_id;
+        this.completedUserTranscripts = [];
         output = attempt;
       } else if (name === "get_evaluation_summary") {
         const attemptId = args.attempt_id ?? this.currentAttemptId;
@@ -177,6 +203,7 @@ export class RealtimeClient {
           if (result.status === "completed") {
             const summary = await getAttemptSummary(attemptId);
             this.callbacks.onEvalResult(summary);
+            this.callbacks.onTranscript({ role: "ai", text: formatEvaluationFeedback(summary) });
             output = summary;
           } else {
             output = { error: "Evaluation failed" };
@@ -199,4 +226,18 @@ export class RealtimeClient {
 
     this.sendEvent({ type: "response.create" });
   }
+}
+
+function formatEvaluationFeedback(summary: EvaluationSummary): string {
+  const parts = [`評分 ${summary.score} 分。${summary.summary}`];
+  if (summary.missing_points.length > 0) {
+    parts.push(`可補強：${summary.missing_points.join("、")}`);
+  }
+  if (summary.next_focus.length > 0) {
+    parts.push(`下一步：${summary.next_focus.join("、")}`);
+  }
+  if (summary.ideal_answer?.trim()) {
+    parts.push(`參考答案：${summary.ideal_answer.trim()}`);
+  }
+  return parts.join("\n");
 }

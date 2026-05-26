@@ -31,7 +31,7 @@ The system SHALL trigger evaluation as a FastAPI BackgroundTask when POST /attem
 - **THEN** the attempt record is updated with status = failed
 
 ### Requirement: Fixed evaluation output schema
-The evaluation result SHALL conform to a fixed JSON schema: score (0-100 INT), summary (STRING), missing_points (STRING[]), next_focus (STRING[]), provider (STRING), model (STRING).
+The evaluation result SHALL conform to a fixed JSON schema: score (0-100 INT), summary (STRING), missing_points (STRING[]), next_focus (STRING[]), ideal_answer (STRING), provider (STRING), model (STRING).
 
 #### Scenario: Schema validated on write
 - **WHEN** evaluation result is written to the attempts.evaluation JSONB column
@@ -49,7 +49,7 @@ The system SHALL expose GET /attempts/{attempt_id}/result that returns the curre
 - **THEN** response contains status = completed with full evaluation object
 
 ### Requirement: Evaluation summary endpoint
-The system SHALL expose GET /attempts/{attempt_id}/summary returning score, summary, missing_points, next_focus for use by the AI tool call get_evaluation_summary.
+The system SHALL expose GET /attempts/{attempt_id}/summary returning score, summary, missing_points, next_focus, ideal_answer for use by the AI tool call get_evaluation_summary.
 
 #### Scenario: Summary available
 - **WHEN** attempt status = completed and GET /attempts/{id}/summary is called

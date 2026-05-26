@@ -145,7 +145,15 @@ def test_session_summary_reports_completed_mock_attempts(client):
 
 
 def test_all_evaluation_providers_complete_with_fixed_schema(client):
-    required_fields = {"score", "summary", "missing_points", "next_focus", "provider", "model"}
+    required_fields = {
+        "score",
+        "summary",
+        "missing_points",
+        "next_focus",
+        "ideal_answer",
+        "provider",
+        "model",
+    }
 
     for provider in ["openai", "claude", "gemini"]:
         question_id = insert_question(
@@ -171,5 +179,7 @@ def test_all_evaluation_providers_complete_with_fixed_schema(client):
         assert set(result["evaluation"]) == required_fields
         assert result["evaluation"]["provider"] == provider
         assert 0 <= result["evaluation"]["score"] <= 100
+        assert "離線模式" in result["evaluation"]["summary"]
         assert isinstance(result["evaluation"]["missing_points"], list)
         assert isinstance(result["evaluation"]["next_focus"], list)
+        assert isinstance(result["evaluation"]["ideal_answer"], str)

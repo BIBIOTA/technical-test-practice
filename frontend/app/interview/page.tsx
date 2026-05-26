@@ -36,7 +36,7 @@ function InterviewContent() {
   const [micStatus, setMicStatus] = useState<MicStatus>("idle");
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<string>("disconnected");
+  const [, setConnectionStatus] = useState<string>("disconnected");
   const [fatalError, setFatalError] = useState<(ParsedError & { isNetwork: boolean }) | null>(null);
   const [toastError, setToastError] = useState<ToastError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -253,7 +253,6 @@ function InterviewContent() {
         {/* Left Panel */}
         <div className="flex-1 overflow-hidden flex flex-col" style={{ borderRight: "1px solid var(--color-border)" }}>
           <InterviewRoom
-            client={clientRef.current}
             stream={micStream}
             currentQuestion={currentQuestion}
             questionIndex={questionIndex}

@@ -1,4 +1,5 @@
 import json
+import re
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
@@ -22,12 +23,13 @@ SYSTEM_PROMPT_TEMPLATE = """你是一位嚴格的資深後端工程師面試官�
 參考答案：{reference_answer}
 應試者回答：{transcript}
 
-請嚴格評估並回傳一個 JSON 物件，包含以下欄位（所有文字欄位請使用繁體中文）：
+請嚴格評估並只回傳一個 JSON 物件。所有自然語言文字都必須使用繁體中文，即使應試者回答中混有英文，也不得把摘要、待改善、優勢 / 下一步或完整回答建議翻譯成英文。
+JSON 必須包含以下欄位：
 - score: 整數 0-100（整體品質分數）
-- summary: 字串（2-3 句話的整體評估）
-- missing_points: 字串陣列（應試者未提及或說明不足的重要知識點）
-- next_focus: 字串陣列（具體建議的改進方向）
-- ideal_answer: 字串（根據參考答案與改進建議，提供一份完整的模範回答）
+- summary: 字串（2-3 句繁體中文，作為「AI 詳細反饋」）
+- missing_points: 字串陣列（繁體中文，作為「待改善」，列出應試者未提及或說明不足的重要知識點）
+- next_focus: 字串陣列（繁體中文，作為「優勢 / 下一步」，先指出回答中的具體優勢，再給下一步改進方向）
+- ideal_answer: 字串（繁體中文，作為「正確完整回答建議」，根據題目與參考答案提供一份完整、可直接學習的建議回答）
 - provider: 字串（你的 provider 名稱）
 - model: 字串（使用的模型名稱）
 
@@ -62,8 +64,24 @@ class EvaluationProvider(ABC):
         data = json.loads(raw[start:end])
         data["provider"] = provider
         data["model"] = model
+        data.setdefault("ideal_answer", "")
         data["score"] = max(0, min(100, int(data["score"])))
         return EvaluationResult(**data)
+
+    def _needs_traditional_chinese_localization(self, result: EvaluationResult) -> bool:
+        return any(_looks_like_english(text) for text in _feedback_texts(result))
+
+    def _build_localization_prompt(self, result: EvaluationResult) -> str:
+        payload = result.model_dump()
+        payload.pop("provider", None)
+        payload.pop("model", None)
+        return (
+            "請將以下面試評分 JSON 的所有自然語言回饋欄位改寫為繁體中文，"
+            "保留原本的技術意思、分數與 JSON schema。"
+            "必須只回傳 JSON，不要加任何說明。\n\n"
+            "需要繁體中文化的欄位：summary、missing_points、next_focus、ideal_answer。\n\n"
+            f"{json.dumps(payload, ensure_ascii=False)}"
+        )
 
     def _offline_result(self, provider: str, model: str, transcript: str) -> EvaluationResult:
         words = [word for word in transcript.split() if word.strip()]
@@ -98,7 +116,17 @@ class OpenAIEvaluationProvider(EvaluationProvider):
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or "{}"
-        return self._parse_result(raw, "openai", self.MODEL)
+        result = self._parse_result(raw, "openai", self.MODEL)
+        if not self._needs_traditional_chinese_localization(result):
+            return result
+
+        localized = await client.chat.completions.create(
+            model=self.MODEL,
+            messages=[{"role": "user", "content": self._build_localization_prompt(result)}],
+            response_format={"type": "json_object"},
+        )
+        localized_raw = localized.choices[0].message.content or "{}"
+        return self._parse_result(localized_raw, "openai", self.MODEL)
 
 
 class ClaudeEvaluationProvider(EvaluationProvider):
@@ -154,3 +182,16 @@ def get_provider(eval_provider: str) -> EvaluationProvider:
     if provider_class is None:
         raise ValueError(f"Unknown eval provider: {eval_provider}")
     return provider_class()
+
+
+def _feedback_texts(result: EvaluationResult) -> list[str]:
+    texts = [result.summary, result.ideal_answer]
+    texts.extend(result.missing_points)
+    texts.extend(result.next_focus)
+    return [text for text in texts if text]
+
+
+def _looks_like_english(text: str) -> bool:
+    ascii_words = re.findall(r"[A-Za-z]{3,}", text)
+    cjk_chars = re.findall(r"[\u4e00-\u9fff]", text)
+    return len(ascii_words) >= 4 and len(ascii_words) > len(cjk_chars)

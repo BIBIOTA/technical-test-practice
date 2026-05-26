@@ -129,21 +129,21 @@ export default function EvalResultCard({ evaluation, sm2, onNext }: Props) {
             </ul>
           </div>
         )}
-      </div>
 
-      {evaluation.ideal_answer && (
-        <div
-          className="rounded-2xl p-5 flex flex-col gap-3"
-          style={{ background: "var(--color-surface)" }}
-        >
-          <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
-            模範回答參考
-          </p>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>
-            {evaluation.ideal_answer}
-          </p>
-        </div>
-      )}
+        {evaluation.ideal_answer && (
+          <div
+            className="rounded-xl p-3"
+            style={{ background: "var(--color-surface-elevated)" }}
+          >
+            <p className="text-xs font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
+              參考答案
+            </p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>
+              {evaluation.ideal_answer}
+            </p>
+          </div>
+        )}
+      </div>
 
       {onNext && (
         <button

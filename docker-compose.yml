@@ -19,7 +19,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://interview:interview@postgres:5432/interview_practice
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,7 +34,7 @@ services:
     environment:
       BACKEND_URL: http://backend:8000
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - backend
 

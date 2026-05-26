@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { NextQuestion } from "../lib/api";
-import type { RealtimeClient, TranscriptMessage } from "../lib/realtimeClient";
+import type { TranscriptMessage } from "../lib/realtimeClient";
 
 type MicStatus = "idle" | "requesting" | "granted" | "denied";
 
 interface Props {
-  client: RealtimeClient | null;
   stream: MediaStream | null;
   currentQuestion: NextQuestion | null;
   questionIndex: number;
@@ -106,6 +105,10 @@ export default function InterviewRoom({
   const displayTranscripts = transcripts
     .filter((m) => !m.isTyping || m.text === "")
     .slice(-8);
+  const answerTranscript = transcripts
+    .filter((m) => m.role === "user" && !m.isTyping && m.text.trim())
+    .map((m) => m.text.trim())
+    .join("\n\n");
 
   const modeBadgeColor = mode === "single" ? "#6C63FF" : mode === "mock" ? "#4ECDC4" : "#F59E0B";
   const modeLabel =
@@ -117,6 +120,44 @@ export default function InterviewRoom({
       : currentQuestion?.difficulty === "hard"
       ? "#C83737"
       : "#F59E0B";
+
+  const sessionControls = (
+    <div className="flex items-center justify-center gap-4 flex-shrink-0">
+      <button
+        onClick={onMuteToggle}
+        className="px-4 py-2.5 rounded-xl text-sm font-medium border"
+        style={{
+          background: isMuted ? "rgba(200,55,55,0.15)" : "var(--color-surface-elevated)",
+          borderColor: isMuted ? "rgba(200,55,55,0.4)" : "transparent",
+          color: isMuted ? "#E57373" : "var(--color-text-secondary)",
+        }}
+      >
+        {isMuted ? "🎤 開啟麥克風" : "🔇 靜音"}
+      </button>
+      {onSubmitAnswer && (
+        <button
+          onClick={onSubmitAnswer}
+          disabled={isSubmitting || !currentQuestion}
+          className="px-4 py-2.5 rounded-xl text-sm font-medium"
+          style={{
+            background: isSubmitting ? "var(--color-surface-elevated)" : "rgba(16,185,129,0.15)",
+            color: isSubmitting || !currentQuestion ? "var(--color-text-secondary)" : "#10B981",
+            opacity: !currentQuestion ? 0.5 : 1,
+            cursor: isSubmitting || !currentQuestion ? "not-allowed" : "pointer",
+          }}
+        >
+          {isSubmitting ? "評分中..." : "送出答案"}
+        </button>
+      )}
+      <button
+        onClick={onNextQuestion}
+        className="px-4 py-2.5 rounded-xl text-sm"
+        style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
+      >
+        下一題 →
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -219,13 +260,26 @@ export default function InterviewRoom({
 
         {/* Voice Interface or Answer Summary */}
         {isCompleted ? (
-          <div className="rounded-2xl p-6 flex-1" style={{ background: "var(--color-surface)" }}>
-            <p className="text-xs font-medium mb-3" style={{ color: "var(--color-text-secondary)" }}>
-              您的回答摘要
-            </p>
-            <p className="text-sm leading-relaxed" style={{ color: "#C5D0DE" }}>
-              {answerSummary || "等待回答..."}
-            </p>
+          <div className="rounded-2xl p-6 flex-1 flex flex-col gap-4" style={{ background: "var(--color-surface)" }}>
+            <div className="flex-1 flex flex-col gap-5">
+              <div>
+                <p className="text-xs font-medium mb-3" style={{ color: "var(--color-text-secondary)" }}>
+                  您的回答逐字稿
+                </p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#C5D0DE" }}>
+                  {answerTranscript || "尚未收到語音逐字稿"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium mb-3" style={{ color: "var(--color-text-secondary)" }}>
+                  評分摘要
+                </p>
+                <p className="text-sm leading-relaxed" style={{ color: "#C5D0DE" }}>
+                  {answerSummary || "等待回答..."}
+                </p>
+              </div>
+            </div>
+            {sessionControls}
           </div>
         ) : micStatus === "idle" ? (
           /* Pre-session: show question, offer start button */
@@ -360,43 +414,8 @@ export default function InterviewRoom({
               )}
               <div ref={transcriptEndRef} />
             </div>
-
             {/* Controls */}
-            <div className="flex items-center justify-center gap-4 flex-shrink-0">
-              <button
-                onClick={onMuteToggle}
-                className="px-4 py-2.5 rounded-xl text-sm font-medium border"
-                style={{
-                  background: isMuted ? "rgba(200,55,55,0.15)" : "var(--color-surface-elevated)",
-                  borderColor: isMuted ? "rgba(200,55,55,0.4)" : "transparent",
-                  color: isMuted ? "#E57373" : "var(--color-text-secondary)",
-                }}
-              >
-                {isMuted ? "🎤 開啟麥克風" : "🔇 靜音"}
-              </button>
-              {onSubmitAnswer && (
-                <button
-                  onClick={onSubmitAnswer}
-                  disabled={isSubmitting || !currentQuestion}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium"
-                  style={{
-                    background: isSubmitting ? "var(--color-surface-elevated)" : "rgba(16,185,129,0.15)",
-                    color: isSubmitting || !currentQuestion ? "var(--color-text-secondary)" : "#10B981",
-                    opacity: !currentQuestion ? 0.5 : 1,
-                    cursor: isSubmitting || !currentQuestion ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {isSubmitting ? "評分中..." : "送出答案"}
-                </button>
-              )}
-              <button
-                onClick={onNextQuestion}
-                className="px-4 py-2.5 rounded-xl text-sm"
-                style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
-              >
-                下一題 →
-              </button>
-            </div>
+            {sessionControls}
           </div>
         )}
       </div>
