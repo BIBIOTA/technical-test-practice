@@ -27,7 +27,15 @@ test("clicking a provider button changes active provider", async ({ page }) => {
   await expect(claudeButton).toHaveAttribute("style", /border-width: 1\.5px/);
 });
 
-test("clicking start session navigates to interview page", async ({ page }) => {
+test("Single Mode start navigates to question selection page", async ({ page }) => {
+  await page.goto("/");
+  // Single Mode is selected by default
+  await page.locator("button").filter({ hasText: "開始面試" }).click();
+
+  await expect(page).toHaveURL(/\/questions\/select\?provider=openai/);
+});
+
+test("Mock Mode start creates session and navigates to interview page", async ({ page }) => {
   await page.route("**/sessions", async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
@@ -35,7 +43,7 @@ test("clicking start session navigates to interview page", async ({ page }) => {
         contentType: "application/json",
         body: JSON.stringify({
           session_id: "test-session-uuid-1234",
-          mode: "single",
+          mode: "mock",
           eval_provider: "openai",
           status: "active",
           started_at: new Date().toISOString(),
@@ -43,11 +51,11 @@ test("clicking start session navigates to interview page", async ({ page }) => {
       });
       return;
     }
-
     await route.continue();
   });
 
   await page.goto("/");
+  await page.locator("button").filter({ hasText: "Mock Interview" }).click();
   await page.locator("button").filter({ hasText: "開始面試" }).click();
 
   await expect(page).toHaveURL(/\/interview\?session_id=test-session-uuid-1234/);
@@ -69,6 +77,7 @@ test("API failure on start shows inline error banner (no alert)", async ({ page 
   });
 
   await page.goto("/");
+  await page.locator("button").filter({ hasText: "Mock Interview" }).click();
   await page.locator("button").filter({ hasText: "開始面試" }).click();
 
   await expect(page.locator("text=伺服器發生錯誤")).toBeVisible();

@@ -44,6 +44,12 @@ export default function HomePage() {
 
   async function handleStart() {
     setSessionError(null);
+
+    if (selectedMode === "single") {
+      router.push(`/questions/select?provider=${evalProvider}`);
+      return;
+    }
+
     setLoading(true);
     try {
       const session = await createSession(selectedMode, evalProvider);
