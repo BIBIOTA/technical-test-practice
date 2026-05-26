@@ -6,7 +6,7 @@ import EvalResultCard from "../../components/EvalResultCard";
 import ErrorOverlay from "../../components/ErrorOverlay";
 import InterviewRoom from "../../components/InterviewRoom";
 import TranscriptPanel from "../../components/TranscriptPanel";
-import { completeSession, type EvaluationResult, type NextQuestion } from "../../lib/api";
+import { completeSession, createAttempt, getAttemptSummary, pollAttemptResult, type EvaluationResult, type NextQuestion } from "../../lib/api";
 import { parseConnectionError, type ParsedError } from "../../lib/errors";
 import { RealtimeClient, type TranscriptMessage } from "../../lib/realtimeClient";
 
@@ -35,9 +35,16 @@ function InterviewContent() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [micStatus, setMicStatus] = useState<MicStatus>("idle");
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<string>("disconnected");
   const [fatalError, setFatalError] = useState<(ParsedError & { isNetwork: boolean }) | null>(null);
   const [toastError, setToastError] = useState<ToastError | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync mute state to mic stream tracks
+  useEffect(() => {
+    micStream?.getTracks().forEach((t) => { t.enabled = !isMuted; });
+  }, [isMuted, micStream]);
 
   // Timer
   useEffect(() => {
@@ -52,11 +59,18 @@ function InterviewContent() {
     return () => clearTimeout(timer);
   }, [toastError]);
 
+  function handleMuteToggle() {
+    setIsMuted((v) => !v);
+  }
+
   // Request mic and connect
   async function startSession() {
     setMicStatus("requesting");
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Apply current mute state to tracks before adding to peer connection
+      stream.getTracks().forEach((t) => { t.enabled = !isMuted; });
       setMicStream(stream);
       setMicStatus("granted");
     } catch {
@@ -65,7 +79,14 @@ function InterviewContent() {
     }
 
     const client = new RealtimeClient(sessionId, mode, {
-      onTranscript: (msg) => setTranscripts((prev) => [...prev, msg]),
+      onTranscript: (msg) => setTranscripts((prev) => {
+        if (msg.isTyping) {
+          // Replace any existing typing indicator for the same role to avoid accumulation
+          return [...prev.filter((m) => !(m.role === msg.role && m.isTyping)), msg];
+        }
+        // Completed message: remove typing indicators for this role, then append
+        return [...prev.filter((m) => !(m.role === msg.role && m.isTyping)), msg];
+      }),
       onQuestion: (q) => {
         setCurrentQuestion({
           question_id: q.question_id,
@@ -92,7 +113,7 @@ function InterviewContent() {
 
     clientRef.current = client;
     try {
-      await client.connect();
+      await client.connect(stream);
     } catch (err) {
       const parsed = parseConnectionError(err);
       setFatalError({ ...parsed, isNetwork: err instanceof TypeError });
@@ -113,6 +134,33 @@ function InterviewContent() {
     setEvalResult(null);
     setAnswerSummary("");
     setActiveTab("transcript");
+  }
+
+  async function handleSubmitAnswer() {
+    if (!currentQuestion || isSubmitting) return;
+    setIsSubmitting(true);
+    const userTranscript = transcripts
+      .filter((m) => m.role === "user" && !m.isTyping)
+      .map((m) => m.text)
+      .join(" ");
+    try {
+      const attempt = await createAttempt(sessionId, currentQuestion.question_id, userTranscript);
+      const result = await pollAttemptResult(attempt.attempt_id);
+      if (result.status === "completed") {
+        const summary = await getAttemptSummary(attempt.attempt_id);
+        setEvalResult(summary as EvaluationResult);
+        setAnswerSummary(summary.summary);
+        setIsCompleted(true);
+        setActiveTab("eval");
+      } else {
+        throw new Error("Evaluation failed");
+      }
+    } catch (err) {
+      const parsed = parseConnectionError(err);
+      setToastError({ ...parsed, severity: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -176,32 +224,6 @@ function InterviewContent() {
         </div>
       )}
 
-      {/* Mic permission overlay */}
-      {micStatus === "idle" && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center"
-          style={{ background: "rgba(15,17,23,0.9)" }}>
-          <div
-            className="rounded-2xl p-8 flex flex-col gap-4 items-center text-center max-w-sm"
-            style={{ background: "var(--color-surface)" }}
-          >
-            <div className="text-4xl">🎤</div>
-            <h2 className="font-semibold text-xl" style={{ color: "var(--color-text-primary)" }}>
-              需要麥克風權限
-            </h2>
-            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-              語音面試需要使用您的麥克風，請允許存取後開始面試。
-            </p>
-            <button
-              onClick={startSession}
-              className="w-full py-3 rounded-xl font-semibold text-white"
-              style={{ background: "var(--color-primary)" }}
-            >
-              允許並開始
-            </button>
-          </div>
-        </div>
-      )}
-
       {micStatus === "denied" && (
         <div className="absolute inset-0 z-50 flex items-center justify-center"
           style={{ background: "rgba(15,17,23,0.9)" }}>
@@ -240,9 +262,16 @@ function InterviewContent() {
             answerSummary={answerSummary}
             onEndSession={handleEndSession}
             onNextQuestion={handleNextQuestion}
+            onStartSession={startSession}
             elapsedSeconds={elapsedSeconds}
             mode={mode}
             evalProvider={provider}
+            isMuted={isMuted}
+            onMuteToggle={handleMuteToggle}
+            transcripts={transcripts}
+            micStatus={micStatus}
+            onSubmitAnswer={handleSubmitAnswer}
+            isSubmitting={isSubmitting}
           />
         </div>
 

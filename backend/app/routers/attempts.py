@@ -129,4 +129,5 @@ async def get_attempt_summary(
         "summary": ev.get("summary"),
         "missing_points": ev.get("missing_points", []),
         "next_focus": ev.get("next_focus", []),
+        "ideal_answer": ev.get("ideal_answer", ""),
     }

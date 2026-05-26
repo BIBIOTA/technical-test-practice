@@ -33,7 +33,7 @@ export class RealtimeClient {
     this.callbacks = callbacks;
   }
 
-  async connect(): Promise<void> {
+  async connect(providedStream?: MediaStream): Promise<void> {
     this.callbacks.onStatusChange("connecting");
 
     const { client_secret } = await createClientSecret(this.sessionId);
@@ -47,13 +47,23 @@ export class RealtimeClient {
       audioEl.srcObject = e.streams[0];
     };
 
-    // Microphone input
-    this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Microphone input - reuse provided stream to share mute control with the caller
+    this.micStream = providedStream ?? await navigator.mediaDevices.getUserMedia({ audio: true });
     this.micStream.getTracks().forEach((track) => this.pc!.addTrack(track, this.micStream!));
 
     // Data channel for events
     this.dc = this.pc.createDataChannel("oai-events");
-    this.dc.onmessage = (e) => this.handleServerEvent(JSON.parse(e.data));
+    this.dc.onopen = () => {
+      console.log("[RT] data channel open");
+      this.callbacks.onStatusChange("connected");
+      // Kick off the first AI response — gpt-realtime-2025-08-28 does not auto-start
+      this.sendEvent({ type: "response.create" });
+    };
+    this.dc.onmessage = (e) => {
+      const evt = JSON.parse(e.data) as Record<string, unknown>;
+      console.log("[RT]", evt.type, evt);
+      this.handleServerEvent(evt);
+    };
 
     // WebRTC offer/answer
     const offer = await this.pc.createOffer();
@@ -81,7 +91,7 @@ export class RealtimeClient {
       sdp: await sdpRes.text(),
     };
     await this.pc.setRemoteDescription(answer);
-    this.callbacks.onStatusChange("connected");
+    // Note: onStatusChange("connected") is now called from dc.onopen after ICE completes
   }
 
   disconnect(): void {

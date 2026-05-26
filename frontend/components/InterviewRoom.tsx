@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { NextQuestion } from "../lib/api";
-import type { RealtimeClient } from "../lib/realtimeClient";
+import type { RealtimeClient, TranscriptMessage } from "../lib/realtimeClient";
+
+type MicStatus = "idle" | "requesting" | "granted" | "denied";
 
 interface Props {
   client: RealtimeClient | null;
@@ -14,9 +16,16 @@ interface Props {
   answerSummary: string;
   onEndSession: () => void;
   onNextQuestion: () => void;
+  onStartSession: () => void;
   elapsedSeconds: number;
   mode: string;
   evalProvider: string;
+  isMuted: boolean;
+  onMuteToggle: () => void;
+  transcripts: TranscriptMessage[];
+  micStatus: MicStatus;
+  onSubmitAnswer?: () => void;
+  isSubmitting?: boolean;
 }
 
 function formatTime(s: number): string {
@@ -34,14 +43,21 @@ export default function InterviewRoom({
   answerSummary,
   onEndSession,
   onNextQuestion,
+  onStartSession,
   elapsedSeconds,
   mode,
   evalProvider,
   stream,
+  isMuted,
+  onMuteToggle,
+  transcripts,
+  micStatus,
+  onSubmitAnswer,
+  isSubmitting,
 }: Props) {
-  const [isMuted, setIsMuted] = useState(false);
   const [barHeights, setBarHeights] = useState(SOUND_WAVE_HEIGHTS);
   const animFrameRef = useRef<number | null>(null);
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!stream) return;
@@ -54,7 +70,6 @@ export default function InterviewRoom({
     source.connect(analyser);
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    // Map voice-range frequencies (up to ~4kHz) to our bars
     const voiceBins = Math.round((4000 / (audioCtx.sampleRate / 2)) * analyser.frequencyBinCount);
     const numBars = SOUND_WAVE_HEIGHTS.length;
 
@@ -82,6 +97,15 @@ export default function InterviewRoom({
       audioCtx.close();
     };
   }, [stream]);
+
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [transcripts]);
+
+  // Only show completed messages + typing indicators (empty-text) to avoid noisy deltas
+  const displayTranscripts = transcripts
+    .filter((m) => !m.isTyping || m.text === "")
+    .slice(-8);
 
   const modeBadgeColor = mode === "single" ? "#6C63FF" : mode === "mock" ? "#4ECDC4" : "#F59E0B";
   const modeLabel =
@@ -156,10 +180,10 @@ export default function InterviewRoom({
         </div>
       </div>
 
-      {/* Body: Question Card + Voice Interface */}
+      {/* Body */}
       <div className="flex-1 overflow-y-auto flex flex-col gap-6 p-8" style={{ paddingLeft: 40, paddingRight: 32 }}>
-        {/* Question Card */}
-        <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ background: "var(--color-surface)" }}>
+        {/* Question Card — only shown after session starts */}
+        {micStatus !== "idle" && <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ background: "var(--color-surface)" }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
@@ -191,7 +215,7 @@ export default function InterviewRoom({
           <p className="font-semibold text-lg leading-relaxed" style={{ color: "var(--color-text-primary)" }}>
             {currentQuestion ? currentQuestion.question_text : "載入題目中..."}
           </p>
-        </div>
+        </div>}
 
         {/* Voice Interface or Answer Summary */}
         {isCompleted ? (
@@ -203,15 +227,58 @@ export default function InterviewRoom({
               {answerSummary || "等待回答..."}
             </p>
           </div>
-        ) : (
+        ) : micStatus === "idle" ? (
+          /* Pre-session: show question, offer start button */
           <div
-            className="rounded-2xl p-6 flex-1 flex flex-col gap-6"
+            className="rounded-2xl p-8 flex-1 flex flex-col items-center justify-center gap-5"
             style={{ background: "var(--color-surface)" }}
           >
-            {/* AI Avatar */}
-            <div className="flex items-center gap-4">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl"
+              style={{ background: "rgba(108,99,255,0.15)", border: "2px solid rgba(108,99,255,0.3)" }}
+            >
+              🎤
+            </div>
+            <div className="text-center flex flex-col gap-2">
+              <p className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                準備好了嗎？
+              </p>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                開始後麥克風預設為關閉，您可隨時開啟
+              </p>
+            </div>
+            <button
+              onClick={onStartSession}
+              className="px-8 py-3 rounded-xl font-semibold text-white"
+              style={{ background: "var(--color-primary)" }}
+            >
+              開始面試
+            </button>
+          </div>
+        ) : micStatus === "requesting" ? (
+          /* Requesting mic permission */
+          <div
+            className="rounded-2xl p-8 flex-1 flex flex-col items-center justify-center gap-4"
+            style={{ background: "var(--color-surface)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full border-2 animate-spin"
+              style={{ borderColor: "var(--color-primary)", borderTopColor: "transparent" }}
+            />
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+              正在請求麥克風權限...
+            </p>
+          </div>
+        ) : (
+          /* Active session */
+          <div
+            className="rounded-2xl p-6 flex-1 flex flex-col gap-4"
+            style={{ background: "var(--color-surface)" }}
+          >
+            {/* AI Avatar + status */}
+            <div className="flex items-center gap-4 flex-shrink-0">
               <div
-                className="w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl border-2"
+                className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl border-2"
                 style={{
                   background: "rgba(108,99,255,0.2)",
                   borderColor: "var(--color-primary)",
@@ -225,51 +292,106 @@ export default function InterviewRoom({
                   AI 面試官
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#10B981" }} />
-                  <span className="text-xs" style={{ color: "#10B981" }}>
-                    正在聆聽...
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: isMuted ? "#C83737" : "#10B981" }}
+                  />
+                  <span className="text-xs" style={{ color: isMuted ? "#C83737" : "#10B981" }}>
+                    {isMuted ? "您的麥克風已關閉" : "正在聆聽..."}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Sound Wave */}
-            <div className="flex items-center justify-center gap-1 py-4">
+            <div className="flex items-center justify-center gap-1 flex-shrink-0" style={{ height: 76 }}>
               {barHeights.map((h, i) => (
                 <div
                   key={i}
                   style={{
-                    width: 6,
+                    width: 5,
                     height: Math.round(h),
-                    background: "var(--color-primary)",
+                    background: isMuted ? "var(--color-border)" : "var(--color-primary)",
                     borderRadius: 3,
                     transition: "height 60ms ease",
+                    opacity: isMuted ? 0.5 : 1,
                   }}
                 />
               ))}
             </div>
 
+            {/* Live Transcript */}
+            <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
+              {displayTranscripts.length === 0 ? (
+                <p className="text-xs text-center py-4" style={{ color: "var(--color-text-secondary)" }}>
+                  對話文字將顯示於此...
+                </p>
+              ) : (
+                displayTranscripts.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-start gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                  >
+                    {msg.role === "ai" && (
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ background: "rgba(108,99,255,0.2)", color: "var(--color-primary)" }}
+                      >
+                        AI
+                      </div>
+                    )}
+                    <div
+                      className="px-3 py-1.5 rounded-xl text-xs leading-relaxed"
+                      style={{
+                        maxWidth: "75%",
+                        ...(msg.role === "ai"
+                          ? { background: "var(--color-surface-elevated)", color: "var(--color-text-primary)" }
+                          : { background: "rgba(108,99,255,0.2)", color: "var(--color-text-primary)" }),
+                      }}
+                    >
+                      {msg.isTyping && msg.text === "" ? (
+                        <span className="opacity-60">●●●</span>
+                      ) : (
+                        msg.text
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={transcriptEndRef} />
+            </div>
+
             {/* Controls */}
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-4 flex-shrink-0">
               <button
-                onClick={() => setIsMuted((v) => !v)}
-                className="px-4 py-3 rounded-xl text-sm"
+                onClick={onMuteToggle}
+                className="px-4 py-2.5 rounded-xl text-sm font-medium border"
                 style={{
-                  background: "var(--color-surface-elevated)",
-                  color: isMuted ? "#C83737" : "var(--color-text-secondary)",
+                  background: isMuted ? "rgba(200,55,55,0.15)" : "var(--color-surface-elevated)",
+                  borderColor: isMuted ? "rgba(200,55,55,0.4)" : "transparent",
+                  color: isMuted ? "#E57373" : "var(--color-text-secondary)",
                 }}
               >
-                {isMuted ? "取消靜音" : "靜音"}
+                {isMuted ? "🎤 開啟麥克風" : "🔇 靜音"}
               </button>
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl text-white"
-                style={{ background: "var(--color-primary)" }}
-              >
-                M
-              </div>
+              {onSubmitAnswer && (
+                <button
+                  onClick={onSubmitAnswer}
+                  disabled={isSubmitting || !currentQuestion}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                  style={{
+                    background: isSubmitting ? "var(--color-surface-elevated)" : "rgba(16,185,129,0.15)",
+                    color: isSubmitting || !currentQuestion ? "var(--color-text-secondary)" : "#10B981",
+                    opacity: !currentQuestion ? 0.5 : 1,
+                    cursor: isSubmitting || !currentQuestion ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSubmitting ? "評分中..." : "送出答案"}
+                </button>
+              )}
               <button
                 onClick={onNextQuestion}
-                className="px-4 py-3 rounded-xl text-sm"
+                className="px-4 py-2.5 rounded-xl text-sm"
                 style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
               >
                 下一題 →

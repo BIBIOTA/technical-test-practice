@@ -114,6 +114,7 @@ export interface EvaluationResult {
   summary: string;
   missing_points: string[];
   next_focus: string[];
+  ideal_answer?: string;
   provider: string;
   model: string;
 }
@@ -127,6 +128,7 @@ export interface AttemptSummary {
   summary: string;
   missing_points: string[];
   next_focus: string[];
+  ideal_answer?: string;
 }
 
 export function getAttemptSummary(attemptId: string): Promise<AttemptSummary> {

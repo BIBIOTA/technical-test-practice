@@ -44,6 +44,7 @@ async def create_client_secret(
                 "tools": _get_tools(),
                 "tool_choice": "auto",
                 "audio": {"output": {"voice": "alloy"}},
+                "input_audio_transcription": {"model": "whisper-1"},
             }
         )
     except Exception as e:

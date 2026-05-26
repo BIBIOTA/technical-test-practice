@@ -11,25 +11,35 @@ class EvaluationResult(BaseModel):
     summary: str
     missing_points: list[str]
     next_focus: list[str]
+    ideal_answer: str = ""
     provider: str
     model: str
 
 
-SYSTEM_PROMPT_TEMPLATE = """You are an expert technical interviewer evaluating a candidate's answer.
+SYSTEM_PROMPT_TEMPLATE = """你是一位嚴格的資深後端工程師面試官，正在評估應試者的技術回答。請全程使用繁體中文。
 
-Question: {question}
-Reference Answer: {reference_answer}
-Candidate's Answer: {transcript}
+題目：{question}
+參考答案：{reference_answer}
+應試者回答：{transcript}
 
-Evaluate the answer and return ONLY a JSON object with these exact fields:
-- score: integer 0-100 (overall quality)
-- summary: string (2-3 sentence evaluation)
-- missing_points: array of strings (key points the candidate missed)
-- next_focus: array of strings (specific areas to improve)
-- provider: string (your provider name)
-- model: string (model name used)
+請嚴格評估並回傳一個 JSON 物件，包含以下欄位（所有文字欄位請使用繁體中文）：
+- score: 整數 0-100（整體品質分數）
+- summary: 字串（2-3 句話的整體評估）
+- missing_points: 字串陣列（應試者未提及或說明不足的重要知識點）
+- next_focus: 字串陣列（具體建議的改進方向）
+- ideal_answer: 字串（根據參考答案與改進建議，提供一份完整的模範回答）
+- provider: 字串（你的 provider 名稱）
+- model: 字串（使用的模型名稱）
 
-Be fair but rigorous. A score of 90+ means an excellent answer covering all key points."""
+嚴格評分標準（請務必遵守）：
+- 90-100：優秀——涵蓋所有重點且有深度、有具體範例、能說明取捨
+- 80-89：良好——涵蓋主要重點，但缺乏深度或缺少具體範例
+- 70-79：尚可——涵蓋基礎知識，但遺漏一個以上的重要概念
+- 60-69：不足——有明顯知識缺口或概念模糊不清
+- 60以下：差——有嚴重錯誤或回答極度不完整
+
+重要：大多數回答應落在 65-80 分。只有在回答極為完整、深入且有具體範例時才給 90+。
+若回答模糊、缺乏範例、或遺漏關鍵點，至多給 75 分。"""
 
 
 class EvaluationProvider(ABC):
@@ -60,9 +70,10 @@ class EvaluationProvider(ABC):
         score = min(95, max(55, 45 + len(words) * 3))
         return EvaluationResult(
             score=score,
-            summary="Offline test evaluation completed with the fixed schema.",
-            missing_points=[] if score >= 75 else ["Add more concrete technical detail."],
-            next_focus=["Use specific examples and tradeoffs."],
+            summary="離線測試評估已完成。",
+            missing_points=[] if score >= 75 else ["請提供更具體的技術細節。"],
+            next_focus=["使用具體範例說明，並討論技術取捨。"],
+            ideal_answer="（離線模式不提供模範回答）",
             provider=provider,
             model=model,
         )
