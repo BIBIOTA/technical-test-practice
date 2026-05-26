@@ -22,7 +22,7 @@ const MOCK_QUESTIONS = [
 ];
 
 async function mockQuestions(page: import("@playwright/test").Page) {
-  await page.route("**/questions", async (route) => {
+  await page.route("**/questions*", async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({
         status: 200,
@@ -104,7 +104,7 @@ test("selecting a question creates session and navigates to interview with quest
 });
 
 test("API error shows error message with retry button", async ({ page }) => {
-  await page.route("**/questions", async (route) => {
+  await page.route("**/questions*", async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({ status: 500, body: "Internal Server Error" });
     } else {
@@ -114,11 +114,12 @@ test("API error shows error message with retry button", async ({ page }) => {
 
   await page.goto(QUESTIONS_URL);
 
+  await expect(page.getByText("伺服器發生錯誤")).toBeVisible();
   await expect(page.getByRole("button", { name: "重試" })).toBeVisible();
 });
 
 test("empty filtered result shows 沒有符合條件的題目", async ({ page }) => {
-  await page.route("**/questions", async (route) => {
+  await page.route("**/questions*", async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({
         status: 200,
@@ -161,4 +162,43 @@ test("back button navigates to home", async ({ page }) => {
   await page.getByRole("button", { name: "← 返回" }).click();
 
   await expect(page).toHaveURL("/");
+});
+
+test("API returns empty list shows 目前沒有可用的題目", async ({ page }) => {
+  await page.route("**/questions*", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.goto(QUESTIONS_URL);
+
+  await expect(page.getByText("目前沒有可用的題目")).toBeVisible();
+});
+
+test("session creation failure shows inline error", async ({ page }) => {
+  await mockQuestions(page);
+
+  await page.route("**/sessions", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 500, body: "Internal Server Error" });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.goto(QUESTIONS_URL);
+
+  const firstSelectButton = page.getByRole("button", { name: "選擇練習" }).first();
+  await firstSelectButton.click();
+
+  await expect(page.getByText("伺服器發生錯誤")).toBeVisible();
+  // User should stay on the question select page
+  await expect(page).toHaveURL(/\/questions\/select/);
 });
