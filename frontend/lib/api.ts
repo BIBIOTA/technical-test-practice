@@ -72,15 +72,34 @@ export interface NextQuestion {
   };
 }
 
+export interface QuestionSummary {
+  question_id: string;
+  question_text: string;
+  category: string;
+  difficulty: string;
+  tags: string[];
+  sm2: { last_score: number | null };
+}
+
+export function listQuestions(category?: string, difficulty?: string): Promise<QuestionSummary[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  if (difficulty) params.set("difficulty", difficulty);
+  const qs = params.toString();
+  return apiFetch(`/questions${qs ? `?${qs}` : ""}`);
+}
+
 export function getNextQuestion(
   sessionId: string,
   mode: string,
   category?: string,
-  difficulty?: string
+  difficulty?: string,
+  questionId?: string
 ): Promise<NextQuestion> {
   const params = new URLSearchParams({ session_id: sessionId, mode });
   if (category) params.set("category", category);
   if (difficulty) params.set("difficulty", difficulty);
+  if (questionId) params.set("question_id", questionId);
   return apiFetch(`/questions/next?${params}`);
 }
 
