@@ -62,27 +62,32 @@ async def select_next_question(
     category: str | None = None,
     difficulty: str | None = None,
     mode: str | None = None,
+    question_id: uuid.UUID | None = None,
 ) -> dict | None:
     filters = ["1=1"]
     params: dict = {}
 
-    if category:
-        filters.append("q.category = :category")
-        params["category"] = category
+    if question_id:
+        filters.append("q.id = :question_id")
+        params["question_id"] = str(question_id)
+    else:
+        if category:
+            filters.append("q.category = :category")
+            params["category"] = category
 
-    if difficulty:
-        filters.append("q.difficulty = :difficulty")
-        params["difficulty"] = difficulty
+        if difficulty:
+            filters.append("q.difficulty = :difficulty")
+            params["difficulty"] = difficulty
 
-    if mode == "weak_review":
-        filters.append("s.next_review_at <= NOW()")
-        filters.append("s.last_score < 60")
+        if mode == "weak_review":
+            filters.append("s.next_review_at <= NOW()")
+            filters.append("s.last_score < 60")
 
-    if session_id:
-        filters.append(
-            "q.id NOT IN (SELECT question_id FROM attempts WHERE session_id = :session_id)"
-        )
-        params["session_id"] = str(session_id)
+        if session_id:
+            filters.append(
+                "q.id NOT IN (SELECT question_id FROM attempts WHERE session_id = :session_id)"
+            )
+            params["session_id"] = str(session_id)
 
     where_clause = " AND ".join(filters)
 

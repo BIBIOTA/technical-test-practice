@@ -15,6 +15,7 @@ async def get_next_question(
     category: str | None = None,
     difficulty: str | None = None,
     mode: str | None = None,
+    question_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(verify_token),
 ) -> dict:
@@ -24,6 +25,7 @@ async def get_next_question(
         category=category,
         difficulty=difficulty,
         mode=mode,
+        question_id=question_id,
     )
     if question is None:
         raise HTTPException(status_code=404, detail="No available question")
