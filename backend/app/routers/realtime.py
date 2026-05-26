@@ -49,10 +49,7 @@ async def create_client_secret(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
 
-    expires_at = None
-    cs_expires = getattr(response.client_secret, "expires_at", None)
-    if cs_expires:
-        expires_at = datetime.fromtimestamp(cs_expires, tz=timezone.utc)
+    expires_at = datetime.fromtimestamp(response.expires_at, tz=timezone.utc)
 
     rt_session = RealtimeSession(
         session_id=body.session_id,
@@ -63,7 +60,7 @@ async def create_client_secret(
     await db.commit()
 
     return {
-        "client_secret": response.client_secret.value,
+        "client_secret": response.value,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "openai_session_id": response.session.id,
     }
