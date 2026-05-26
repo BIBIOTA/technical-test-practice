@@ -29,10 +29,11 @@ test("clicking a provider button changes active provider", async ({ page }) => {
 
 test("Single Mode start navigates to question selection page", async ({ page }) => {
   await page.goto("/");
-  // Single Mode is selected by default
+  await page.locator("button").filter({ hasText: "Single Mode" }).click();
   await page.locator("button").filter({ hasText: "開始面試" }).click();
 
   await expect(page).toHaveURL(/\/questions\/select\?provider=openai/);
+  await expect(page.locator("h1")).toContainText("選擇練習題目");
 });
 
 test("Mock Mode start creates session and navigates to interview page", async ({ page }) => {
@@ -59,6 +60,7 @@ test("Mock Mode start creates session and navigates to interview page", async ({
   await page.locator("button").filter({ hasText: "開始面試" }).click();
 
   await expect(page).toHaveURL(/\/interview\?session_id=test-session-uuid-1234/);
+  await expect(page.locator("button").filter({ hasText: "對話紀錄" })).toBeVisible();
 });
 
 test("API failure on start shows inline error banner (no alert)", async ({ page }) => {
