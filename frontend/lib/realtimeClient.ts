@@ -34,12 +34,19 @@ export class RealtimeClient {
   private callbacks: RealtimeCallbacks;
   private currentAttemptId: string | null = null;
   private currentQuestionId: string | null = null;
+  private pinnedQuestionId: string | null;
   private completedUserTranscripts: string[] = [];
 
-  constructor(sessionId: string, mode: string, callbacks: RealtimeCallbacks) {
+  constructor(
+    sessionId: string,
+    mode: string,
+    callbacks: RealtimeCallbacks,
+    options?: { pinnedQuestionId?: string }
+  ) {
     this.sessionId = sessionId;
     this.mode = mode;
     this.callbacks = callbacks;
+    this.pinnedQuestionId = options?.pinnedQuestionId ?? null;
   }
 
   async connect(providedStream?: MediaStream): Promise<void> {
@@ -172,7 +179,8 @@ export class RealtimeClient {
           this.sessionId,
           args.mode ?? this.mode,
           args.category,
-          args.difficulty
+          args.difficulty,
+          this.pinnedQuestionId ?? undefined
         );
         this.currentQuestionId = q.question_id;
         this.completedUserTranscripts = [];
