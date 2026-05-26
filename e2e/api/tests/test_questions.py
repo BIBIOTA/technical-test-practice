@@ -70,6 +70,7 @@ def test_list_questions_filter_by_category(client, question_id):
 
     assert response.status_code == 200
     body = response.json()
+    assert len(body) >= 1
     assert all(q["category"] == "backend" for q in body)
 
 
@@ -78,6 +79,7 @@ def test_list_questions_filter_by_difficulty(client, question_id):
 
     assert response.status_code == 200
     body = response.json()
+    assert len(body) >= 1
     assert all(q["difficulty"] == "easy" for q in body)
 
 
