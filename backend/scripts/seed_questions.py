@@ -132,36 +132,157 @@ Feature: 使用者結帳
         "category": "auth",
         "difficulty": "medium",
         "tags": ["auth", "jwt", "security"],
-        "reference_answer": """JWT（JSON Web Token）是一種「無狀態（Stateless）認證」機制。後端不需在 DB 保存 Session，而是將使用者身分打包、加密簽名後交給前端保管。
+        "reference_answer": """JWT token 是一種「無狀態（Stateless）認證」。
+後端不需要在資料庫或記憶體中保存使用者的登入 Session 狀態，而是將使用者的身分與權限資訊打包成 Claims，透過簽名保護資料完整性後，交由前端保管。
 
-## 結構（三段 Base64 以 . 分隔）
+## 核心觀念
 
-| 部分 | 說明 |
-|------|------|
-| Header | 宣告 token 類型（JWT）與簽名演算法（HS256 / RS256） |
-| Payload | 存放 Claims：user_id、role、exp（過期時間）。**注意：只有 Base64 編碼，未加密，不能放密碼或敏感個資** |
-| Signature | Header + Payload + Secret Key 計算出的 hash，防止竄改 |
+1. **Header（標頭）：**
+宣告這個 Token 的類型（通常為 JWT）以及所使用的簽名演算法（例如 HMAC SHA256 或 RSA）。
+
+2. **Payload（內容／聲明）：**
+存放實際的資料，稱為 Claims。通常會包含 `user_id`、`role`（權限角色）以及 `exp`（過期時間戳記）。
+
+3. **Signature（簽名）：**
+將 Header 與 Payload 組合後，加上只有後端才知道的 Secret Key（密鑰），透過 Header 指定的演算法計算出的雜湊值。這確保了 Token 在傳輸過程中即使遭到攔截，也無法被竄改。
+
+組合起來的結構如下：
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+```
+
+Header、Payload、Signature 三個部分分別以 `.` 作為分隔，並轉換為 Base64Url 編碼字串後組合而成。
 
 ## 核發與使用流程
 
-1. 前端 POST 帳密 → 後端驗證
-2. 後端將 user_id、role、exp 寫入 Payload，用 Secret Key 簽名，回傳 JWT
-3. 前端儲存 token：
-   - **HttpOnly Cookie（最推薦）**：JS 無法讀取，防 XSS
-   - LocalStorage：實作簡單但 XSS 風險高
-4. 前端帶 `Authorization: Bearer <token>` 發送請求
-5. 後端用 Secret Key 重算 Signature 比對，驗證未過期即放行
+1. **使用者登入：**
+前端將使用者輸入的帳號與密碼，透過 POST 請求發送給後端 API 進行身分驗證。
 
-## 雙 Token 機制
+2. **後端核發 Token：**
+後端比對資料庫中的帳號密碼。驗證無誤後，將使用者的基本資訊與過期時間寫入 Payload，以伺服器的 Secret Key 產生 Signature，最後將組合好的 JWT 回傳給前端。
 
-| Token | 壽命 | 用途 |
-|-------|------|------|
-| Access Token | 短（15 分鐘） | 隨 API 請求攜帶，外洩損害有限 |
-| Refresh Token | 長（7-30 天） | 存 HttpOnly Cookie，Access Token 過期時換新的 |
+3. **前端儲存 Token：**
+前端收到 JWT 後需妥善儲存，實務上最好的存放方式是 **HttpOnly Cookie**。
 
-## JWT 的限制
-JWT 一旦發行，在過期前很難直接作廢（stateless 的代價）。
-解法：縮短 Access Token 有效期、維護 token blacklist（犧牲部分 stateless 優點）。""",
+4. **前端攜帶 Token 發送請求：**
+當前端需要存取受保護的 API（例如獲取會員資料、進行結帳）時，會在 HTTP Request 的 Authorization Header 中帶上 Token，標準格式為：`Bearer <你的_JWT_Token>`。
+
+5. **後端驗證 Token：**
+後端收到請求後，會以自己的 Secret Key 重新計算 Token 的 Signature，並與傳入的值比對。若一致且未過期，即判定身分合法，放行請求並回傳資料。
+
+## 使用 JWT 的注意事項
+
+**1. 不要在 JWT Token 中放入敏感資訊**
+Payload 僅經過 Base64Url 編碼，並未加密，絕對不能存放密碼或任何敏感個資。
+
+**2. Cross-site 攻擊的風險**
+任何人持有 Token 都能與後端進行溝通，因此存在 Cross-site 攻擊的風險，常見類型有兩種：
+- **XSS（跨站指令碼攻擊）：** 駭客在有 XSS 漏洞的網站中注入惡意 JavaScript，當已登入且 `localStorage` 中存有 JWT 的使用者瀏覽時，瀏覽器會執行該惡意程式碼，使駭客得以竊取 JWT Token。
+- **CSRF（跨站請求偽造）：** 使用者在尚未登出的情況下，被誘騙點擊或造訪駭客建立的惡意網站，該網站中隱藏了自動發送表單或 API 請求的程式碼，藉此透過使用者的身分發送惡意請求。
+
+為避免 XSS，避免將 JWT Token 存放於 `localStorage` 或 `sessionStorage`。
+為避免 CSRF，可在存有 JWT 的 Cookie 上加設 `SameSite=Strict` 或 `SameSite=Lax` 屬性，限制瀏覽器在跨站請求時不自動夾帶 Cookie；或採用 Double Submit Cookie 的方式，讓後端同時驗證瀏覽器自動帶上的 Cookie Token，以及前端手動置入 Header（或 Body）的 Token 是否一致。
+
+**3. JWT Token 發行後難以主動銷毀**
+Session 可隨時被銷毀，但 JWT 的設計原則是在過期前持續有效。為兼顧安全性與使用者體驗，現代系統通常會同時發行兩種 Token：
+
+| Token 類型 | 壽命 | 用途 |
+|-----------|------|------|
+| **Access Token** | 極短（如 15 分鐘） | 放在 HTTP Header 中隨每次請求攜帶，用於存取 API 資料。即使外洩，損害的時間窗口也很小。 |
+| **Refresh Token** | 較長（如 7 至 30 天） | 通常嚴格保存於 HttpOnly Cookie 中。當 Access Token 過期時，前端會在背景以它向後端換取新的 Access Token，使用者無需重新輸入帳密。 |""",
+    },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "3667c329-f14b-802f-9141-ee47cf61f6ca",
+        "text": "解釋時間複雜度（Time Complexity）與 Big O 符號，並舉例說明常見的複雜度級別。",
+        "category": "algorithms",
+        "difficulty": "medium",
+        "tags": ["algorithms", "time-complexity", "big-o", "cs-fundamentals"],
+        "reference_answer": """演算法的時間複雜度是用來定性描述演算法執行時間隨輸入量增長的函式。在工程上通常用 **Big O 符號** 表示。
+
+## 常見複雜度級別（從最快到最慢）
+
+### O(1) - 常數時間 (Constant Time)
+不管資料量多少，執行時間固定。
+- **情境：** Redis Key 讀取、Python Dictionary 取值
+```python
+def get_first_item(items):
+    return items[0]
+```
+
+### O(log n) - 對數時間 (Logarithmic Time)
+每次操作將搜尋範圍縮小一半，資料量大幅增加時執行時間只微微增加。
+- **情境：** 資料庫 B-Tree 索引查詢、二分搜尋法
+```python
+def binary_search(sorted_list, target):
+    left, right = 0, len(sorted_list) - 1
+    while left <= right:
+        mid = (left + right) // 2
+        if sorted_list[mid] == target:
+            return mid
+        elif sorted_list[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    return -1
+```
+
+### O(n) - 線性時間 (Linear Time)
+執行時間隨資料量等比例增加，有一層迴圈跑遍所有資料。
+- **情境：** 遍歷 List 轉換格式、在未排序資料中搜尋
+```python
+def process_all_users(users):
+    for user in users:
+        format_data(user)
+```
+
+### O(n log n) - 線性對數時間 (Linearithmic Time)
+大多數高效能排序演算法的速度極限。
+- **情境：** Python 內建 `sort()` / `sorted()`（底層是 Timsort）、Merge Sort
+```python
+def sort_my_data(data):
+    return sorted(data)
+```
+
+### O(n^2) - 平方時間 (Quadratic Time)
+資料量增大時執行時間呈平方暴增，是效能殺手。
+- **情境：** 雙層巢狀迴圈比對資料（未用 Set/Dict 建立索引）
+```python
+def find_duplicates(array1, array2):
+    for item1 in array1:
+        for item2 in array2:
+            if item1 == item2:
+                return True
+    return False
+```
+
+### O(2^n) - 指數時間 (Exponential Time)
+資料量每增加 1，執行時間就翻倍，實務上極度危險。
+- **情境：** 未經快取優化的遞迴（如原始費氏數列）
+```python
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+```
+
+### O(n!) - 階乘時間 (Factorial Time)
+最慢的複雜度，資料量稍大即無法計算。
+- **情境：** 全排列暴力解（旅行推銷員問題 TSP）
+```python
+import itertools
+def get_all_permutations(items):
+    return list(itertools.permutations(items))
+```
+
+## 實務心法
+
+排序：**O(1) < O(log n) < O(n) < O(n log n) < O(n^2) < O(2^n) < O(n!)**
+
+1. 利用 **Hash Table（Python 的 Dictionary / Set）** 將 O(n^2) 比對降為 O(n)。
+2. 對頻繁搜尋的資料確保資料庫有建索引，讓查詢維持在 O(log n)。
+3. 巢狀 `for` 迴圈要有警覺心；遞迴函數要評估是否引發 O(2^n) 的運算災難。""",
     },
     {
         "id": uuid.uuid4(),

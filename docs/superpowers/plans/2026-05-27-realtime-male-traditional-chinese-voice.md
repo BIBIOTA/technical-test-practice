@@ -1,8 +1,8 @@
-# Realtime Male Traditional Chinese Voice Implementation Plan
+# Realtime Traditional Chinese Voice Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Change the OpenAI Realtime interviewer to use the `cedar` voice with a calm, male-presenting Traditional Chinese interview style.
+**Goal:** Change the OpenAI Realtime interviewer to use the `cedar` voice with a calm, professional Traditional Chinese interview style.
 
 **Architecture:** The backend owns Realtime session creation, so the voice and voice-style instructions are configured in `backend/app/routers/realtime.py`. Unit coverage lives in `backend/tests/test_realtime.py` and verifies the generated session config without calling OpenAI.
 
@@ -87,7 +87,7 @@ Expected: `test_output_voice_uses_cedar` fails because the current config is `{"
 In `backend/app/routers/realtime.py`, update `_build_system_prompt()` so the `規則：` section includes this new rule after the existing first rule:
 
 ```text
-2. 語音風格需自然、沉穩、專業，呈現偏男性聲線的台灣繁體中文面試官口吻；語速適中，避免簡體中文與中國用語
+2. 語音風格需自然、沉穩、專業，使用台灣繁體中文面試官口吻；語速適中，避免簡體中文與中國用語
 ```
 
 Renumber the following rules so the section reads:
@@ -95,7 +95,7 @@ Renumber the following rules so the section reads:
 ```text
 規則：
 1. 使用繁體中文進行全程對話
-2. 語音風格需自然、沉穩、專業，呈現偏男性聲線的台灣繁體中文面試官口吻；語速適中，避免簡體中文與中國用語
+2. 語音風格需自然、沉穩、專業，使用台灣繁體中文面試官口吻；語速適中，避免簡體中文與中國用語
 3. 每次只問一個問題，等待應試者完整回答
 4. 絕對不透露參考答案
 5. 若應試者主動要求提示，僅提供方向性提示
@@ -167,10 +167,10 @@ Expected:
 - The spoken style is calm, professional, and suitable for Traditional Chinese interview practice.
 - The answer-submission and transcript flow behave as before.
 
-Automated tests verify the backend config. Manual listening is still needed to judge whether the perceived voice fits the requested male-sounding style.
+Automated tests verify the backend config. Manual listening is still needed to judge whether the perceived voice style is suitable in practice.
 
 ## Self-Review
 
-- Spec coverage: `cedar` voice is covered by Task 1 and Task 2. Prompt guidance for Traditional Chinese male-presenting style is covered by Task 2. No frontend controls or environment-variable support are included.
+- Spec coverage: `cedar` voice is covered by Task 1 and Task 2. Prompt guidance for Traditional Chinese voice style is covered by Task 2. No frontend controls or environment-variable support are included.
 - Placeholder scan: no placeholder steps remain.
 - Type consistency: the plan uses the existing `_build_realtime_session_config(mode: str) -> dict` function and existing `session["audio"]["output"]` shape.

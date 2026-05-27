@@ -1,6 +1,7 @@
 import unittest
 
 from app.routers.realtime import _build_realtime_session_config
+from app.routers.realtime import _build_system_prompt
 
 
 class RealtimeSessionConfigTest(unittest.TestCase):
@@ -21,6 +22,11 @@ class RealtimeSessionConfigTest(unittest.TestCase):
     def test_output_voice_uses_cedar(self) -> None:
         session = _build_realtime_session_config("single")
         self.assertEqual(session["audio"]["output"], {"voice": "cedar"})
+
+    def test_system_prompt_does_not_request_male_presenting_voice(self) -> None:
+        prompt = _build_system_prompt("single")
+        self.assertNotIn("偏男性", prompt)
+        self.assertNotIn("男性聲線", prompt)
 
 
 if __name__ == "__main__":
