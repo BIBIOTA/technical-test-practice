@@ -33,7 +33,22 @@ class NormalizeTranscriptTest(unittest.IsolatedAsyncioTestCase):
                 mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
                 mock_cls.return_value = mock_client
                 result = await normalize_transcript("偶一 常數時間")
+                mock_cls.assert_called_once_with(api_key="test-key")
                 self.assertEqual(result, "O(1) 常數時間")
+
+    async def test_falls_back_to_raw_when_api_returns_no_choices(self):
+        from app.services.transcript import normalize_transcript
+        mock_response = MagicMock()
+        mock_response.choices = []
+        with patch("app.services.transcript.settings") as mock_settings:
+            mock_settings.evaluation_offline_mode = False
+            mock_settings.openai_api_key = "test-key"
+            with patch("app.services.transcript.AsyncOpenAI") as mock_cls:
+                mock_client = MagicMock()
+                mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+                mock_cls.return_value = mock_client
+                result = await normalize_transcript("偶一 常數時間")
+                self.assertEqual(result, "偶一 常數時間")
 
     async def test_falls_back_to_raw_on_api_error(self):
         from app.services.transcript import normalize_transcript
