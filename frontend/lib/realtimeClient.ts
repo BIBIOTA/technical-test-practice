@@ -156,13 +156,8 @@ export class RealtimeClient {
   submitAnswer(): void {
     if (this.hasSubmittedAnswer) return;
     this.hasSubmittedAnswer = true;
-    // Flush transcripts that completed before the user clicked submit.
-    // semantic_vad commits the audio buffer automatically, so the transcription
-    // completed event can arrive while hasSubmittedAnswer is still false.
-    for (const text of this.completedUserTranscripts) {
-      this.callbacks.onTranscript({ role: "user", text });
-    }
-    // Do NOT clear completedUserTranscripts here — mark_answer_completed reads it.
+    // Do NOT flush raw transcripts here — the cleaned transcript is surfaced
+    // to the UI after createAttempt resolves in mark_answer_completed.
     this.sendEvent({
       type: "conversation.item.create",
       item: {
@@ -226,12 +221,6 @@ export class RealtimeClient {
       const transcript = event.transcript as string;
       if (transcript.trim()) {
         this.completedUserTranscripts.push(transcript.trim());
-        // Only surface the transcript to the UI after the user has explicitly
-        // submitted; with VAD disabled this event should only fire post-commit,
-        // but guard defensively in case of a pre-session.update race window.
-        if (this.hasSubmittedAnswer) {
-          this.callbacks.onTranscript({ role: "user", text: transcript });
-        }
       }
     }
 
@@ -286,6 +275,9 @@ export class RealtimeClient {
         );
         this.currentAttemptId = attempt.attempt_id;
         this.completedUserTranscripts = [];
+        if (attempt.transcript) {
+          this.callbacks.onTranscript({ role: "user", text: attempt.transcript });
+        }
         output = attempt;
       } else if (name === "get_evaluation_summary") {
         const attemptId = args.attempt_id ?? this.currentAttemptId;
