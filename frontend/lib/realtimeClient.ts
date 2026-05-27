@@ -73,6 +73,9 @@ export class RealtimeClient {
     this.dc.onopen = () => {
       console.log("[RT] data channel open");
       this.callbacks.onStatusChange("connected");
+      // Disable server VAD so the AI never auto-responds mid-answer;
+      // the submit button commits the buffer and triggers evaluation instead.
+      this.sendEvent({ type: "session.update", session: { turn_detection: null } });
       // Kick off the first AI response — gpt-realtime-2025-08-28 does not auto-start
       this.sendEvent({ type: "response.create" });
     };

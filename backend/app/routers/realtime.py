@@ -150,10 +150,9 @@ def _build_realtime_session_config(mode: str) -> dict:
         "instructions": _build_system_prompt(mode),
         "tools": _get_tools(),
         "tool_choice": "auto",
-        "turn_detection": None,
         "audio": {
             "input": {
-                "transcription": {"model": "gpt-4o-transcribe", "language": "zh-TW"},
+                "transcription": {"model": "gpt-4o-transcribe", "language": "zh"},
             },
             "output": {"voice": "coral"},
         },
