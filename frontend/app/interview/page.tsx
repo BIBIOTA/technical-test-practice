@@ -135,6 +135,8 @@ function InterviewContent() {
     setEvalResult(null);
     setAnswerSummary("");
     setActiveTab("transcript");
+    setCurrentQuestion(null);
+    clientRef.current?.requestNextQuestion();
   }
 
   async function handleSubmitAnswer() {

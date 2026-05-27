@@ -121,6 +121,18 @@ export class RealtimeClient {
     this.callbacks.onStatusChange("disconnected");
   }
 
+  requestNextQuestion(): void {
+    this.sendEvent({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "請繼續下一題" }],
+      },
+    });
+    this.sendEvent({ type: "response.create" });
+  }
+
   private sendEvent(event: object): void {
     if (this.dc?.readyState === "open") {
       this.dc.send(JSON.stringify(event));
