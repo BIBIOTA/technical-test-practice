@@ -244,7 +244,7 @@ test("realtime answer submission keeps Chinese transcript and shows feedback tex
     await route.fulfill({
       status: 202,
       contentType: "application/json",
-      body: JSON.stringify({ attempt_id: "attempt-123", status: "pending_evaluation" }),
+      body: JSON.stringify({ attempt_id: "attempt-123", status: "pending_evaluation", transcript: "我會先用資料庫索引縮小查詢範圍，並確認查詢計畫。" }),
     });
   });
 
@@ -303,7 +303,7 @@ test("user voice transcript appears in left panel and eval card after submit", a
     await route.fulfill({
       status: 202,
       contentType: "application/json",
-      body: JSON.stringify({ attempt_id: "attempt-vis-test", status: "pending_evaluation" }),
+      body: JSON.stringify({ attempt_id: "attempt-vis-test", status: "pending_evaluation", transcript: "我認為需要使用索引和快取策略。" }),
     });
   });
 

@@ -108,7 +108,7 @@ export function getNextQuestion(
 export interface AttemptCreated {
   attempt_id: string;
   status: string;
-  transcript: string;
+  transcript: string | null;
 }
 
 export function createAttempt(
