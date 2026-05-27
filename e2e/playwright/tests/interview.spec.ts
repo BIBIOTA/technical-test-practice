@@ -269,7 +269,6 @@ test("realtime answer submission keeps Chinese transcript and shows feedback tex
   });
 
   await expect.poll(() => submittedBody?.transcript).toBe("我會先用資料庫索引縮小查詢範圍，並確認查詢計畫。");
-  await expect(page.getByText("我會先用資料庫索引縮小查詢範圍，並確認查詢計畫。").first()).toBeVisible();
 
   await emitRealtimeEvent(page, {
     type: "response.output_text.done",
@@ -277,4 +276,117 @@ test("realtime answer submission keeps Chinese transcript and shows feedback tex
   });
 
   await expect(page.getByText("這段回答有提到索引與查詢計畫，但可以補充取捨。").first()).toBeVisible();
+});
+
+test("user voice transcript appears in left panel and eval card after submit", async ({ page }) => {
+  await grantMicrophone(page);
+  await mockRealtimeStartup(page);
+
+  // Mock: question fetch (needed to enable the submit button)
+  await page.route("**/questions/next**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        question_id: "00000000-0000-0000-0000-000000000001",
+        question_text: "如何優化慢查詢？",
+        category: "資料庫",
+        difficulty: "medium",
+        tags: [],
+        sm2: { ease_factor: null, interval_days: null, next_review_at: null, last_score: null },
+      }),
+    });
+  });
+
+  // Mock: attempt creation
+  await page.route("**/attempts", async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({ attempt_id: "attempt-vis-test", status: "pending_evaluation" }),
+    });
+  });
+
+  // Mock: poll result
+  await page.route("**/attempts/attempt-vis-test/result", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ attempt_id: "attempt-vis-test", status: "completed", score: 70, evaluation: null }),
+    });
+  });
+
+  // Mock: eval summary
+  await page.route("**/attempts/attempt-vis-test/summary", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        score: 70,
+        summary: "回答提及索引，可補充查詢計畫。",
+        missing_points: [],
+        next_focus: [],
+        ideal_answer: "",
+        provider: "test",
+        model: "test-model",
+      }),
+    });
+  });
+
+  await page.goto(INTERVIEW_URL);
+  await page.getByRole("button", { name: "開始面試" }).click();
+  await page.waitForFunction(
+    () => Boolean((window as unknown as { __rtDataChannel?: unknown }).__rtDataChannel)
+  );
+
+  // Emit get_next_question to set currentQuestion (enables submit button)
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-q",
+    name: "get_next_question",
+    arguments: JSON.stringify({ mode: "single" }),
+  });
+
+  // Wait for the question to render (submit button becomes enabled)
+  await expect(page.getByRole("button", { name: "送出答案" })).not.toBeDisabled({ timeout: 3000 });
+
+  // Simulate race condition: transcription completes BEFORE user clicks submit
+  await emitRealtimeEvent(page, {
+    type: "conversation.item.input_audio_transcription.completed",
+    transcript: "我認為需要使用索引和快取策略。",
+  });
+
+  // User clicks submit — our fix flushes the accumulated transcript to the UI
+  await page.getByRole("button", { name: "送出答案" }).click();
+
+  // Complete the eval flow by emitting tool calls from the fake data channel
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-mark",
+    name: "mark_answer_completed",
+    arguments: JSON.stringify({
+      session_id: "test-session-uuid",
+      question_id: "00000000-0000-0000-0000-000000000001",
+      transcript: "我認為需要使用索引和快取策略。",
+    }),
+  });
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-eval",
+    name: "get_evaluation_summary",
+    arguments: JSON.stringify({ attempt_id: "attempt-vis-test" }),
+  });
+
+  // Wait for eval card to appear (tab auto-switches to 評分結果)
+  await expect(page.locator("text=AI 詳細反饋")).toBeVisible({ timeout: 5000 });
+
+  // Assert: transcript visible in LEFT panel "您的回答逐字稿"
+  await expect(page.locator("text=您的回答逐字稿")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByText("我認為需要使用索引和快取策略。").first()).toBeVisible({ timeout: 3000 });
+
+  // Assert: right panel eval card shows "您的回答" section label (exact: true avoids
+  // matching "您的回答逐字稿" as a substring)
+  await expect(page.getByText("您的回答", { exact: true }).first()).toBeVisible();
+  // The transcript text now appears in both panels — confirm the second occurrence
+  await expect(page.getByText("我認為需要使用索引和快取策略。").nth(1)).toBeVisible();
 });

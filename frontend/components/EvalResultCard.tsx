@@ -4,6 +4,7 @@ import type { EvaluationResult } from "../lib/api";
 
 interface Props {
   evaluation: EvaluationResult;
+  answerTranscript?: string;
   sm2?: {
     ease_factor: number | null;
     interval_days: number | null;
@@ -17,9 +18,27 @@ const DIMENSIONS = [
   { key: "問題解決", color: "#10B981" },
 ];
 
-export default function EvalResultCard({ evaluation, sm2 }: Props) {
+export default function EvalResultCard({ evaluation, answerTranscript, sm2 }: Props) {
   return (
     <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
+      {answerTranscript && (
+        <div
+          className="rounded-2xl p-5 flex flex-col gap-2"
+          style={{ background: "var(--color-surface)" }}
+        >
+          <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+            您的回答
+          </p>
+          <div className="overflow-y-auto" style={{ maxHeight: 140 }}>
+            <p
+              className="text-sm leading-relaxed whitespace-pre-wrap"
+              style={{ color: "#C5D0DE" }}
+            >
+              {answerTranscript}
+            </p>
+          </div>
+        </div>
+      )}
       {/* Score Card */}
       <div
         className="rounded-2xl p-5 flex flex-col gap-4"

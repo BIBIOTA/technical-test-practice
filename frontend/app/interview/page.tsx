@@ -44,6 +44,11 @@ function InterviewContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEvalTimedOut, setIsEvalTimedOut] = useState(false);
 
+  const answerTranscript = transcripts
+    .filter((m) => m.role === "user" && !m.isTyping && m.text.trim())
+    .map((m) => m.text.trim())
+    .join("\n\n");
+
   // Sync mute state to mic stream tracks
   useEffect(() => {
     micStream?.getTracks().forEach((t) => { t.enabled = !isMuted; });
@@ -326,6 +331,7 @@ function InterviewContent() {
           ) : evalResult ? (
             <EvalResultCard
               evaluation={evalResult}
+              answerTranscript={answerTranscript || undefined}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">

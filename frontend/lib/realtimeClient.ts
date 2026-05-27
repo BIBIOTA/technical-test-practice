@@ -37,6 +37,10 @@ export class RealtimeClient {
   private pinnedQuestionId: string | null;
   private completedUserTranscripts: string[] = [];
   private functionCallBuffers = new Map<string, string>();
+  private hasSubmittedAnswer = false;
+  // Tracks that WE sent response.create, so we can cancel any response the
+  // server auto-generates via VAD before the user clicks Submit.
+  private pendingResponseCreate = false;
 
   constructor(
     sessionId: string,
@@ -73,11 +77,24 @@ export class RealtimeClient {
     this.dc.onopen = () => {
       console.log("[RT] data channel open");
       this.callbacks.onStatusChange("connected");
-      // Disable server VAD so the AI never auto-responds mid-answer;
-      // the submit button commits the buffer and triggers evaluation instead.
-      this.sendEvent({ type: "session.update", session: { turn_detection: null } });
+      // gpt-realtime-2025-08-28 defaults to semantic_vad and ignores
+      // turn_detection:null (treats it as "use default"). Configure semantic_vad
+      // explicitly with create_response:false so VAD detection still works but
+      // the model never auto-creates a response — only our sendResponseCreate()
+      // calls trigger responses.
+      this.sendEvent({
+        type: "session.update",
+        session: {
+          turn_detection: {
+            type: "semantic_vad",
+            eagerness: "low",
+            create_response: false,
+            interrupt_response: false,
+          },
+        },
+      });
       // Kick off the first AI response — gpt-realtime-2025-08-28 does not auto-start
-      this.sendEvent({ type: "response.create" });
+      this.sendResponseCreate();
     };
     this.dc.onmessage = (e) => {
       const evt = JSON.parse(e.data) as Record<string, unknown>;
@@ -133,12 +150,29 @@ export class RealtimeClient {
         content: [{ type: "input_text", text: "請繼續下一題" }],
       },
     });
-    this.sendEvent({ type: "response.create" });
+    this.sendResponseCreate();
   }
 
   submitAnswer(): void {
+    if (this.hasSubmittedAnswer) return;
+    this.hasSubmittedAnswer = true;
+    // Flush transcripts that completed before the user clicked submit.
+    // semantic_vad commits the audio buffer automatically, so the transcription
+    // completed event can arrive while hasSubmittedAnswer is still false.
+    for (const text of this.completedUserTranscripts) {
+      this.callbacks.onTranscript({ role: "user", text });
+    }
+    // Do NOT clear completedUserTranscripts here — mark_answer_completed reads it.
+    this.sendEvent({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "（送出答案）" }],
+      },
+    });
     this.sendEvent({ type: "input_audio_buffer.commit" });
-    this.sendEvent({ type: "response.create" });
+    this.sendResponseCreate();
   }
 
   private sendEvent(event: object): void {
@@ -147,8 +181,26 @@ export class RealtimeClient {
     }
   }
 
+  private sendResponseCreate(): void {
+    this.pendingResponseCreate = true;
+    this.sendEvent({ type: "response.create" });
+  }
+
   private async handleServerEvent(event: Record<string, unknown>): Promise<void> {
     const type = event.type as string;
+
+    // Guard: cancel any response the server auto-created via VAD before the user
+    // clicked Submit. We only allow responses that we explicitly requested via
+    // sendResponseCreate() or that follow a user submission.
+    if (type === "response.created") {
+      if (this.pendingResponseCreate || this.hasSubmittedAnswer) {
+        this.pendingResponseCreate = false; // consume the tracked request
+      } else {
+        // VAD triggered this response without our instruction — cancel immediately.
+        this.sendEvent({ type: "response.cancel" });
+      }
+      return;
+    }
 
     if (type === "response.output_audio_transcript.delta" || type === "response.audio_transcript.delta") {
       const delta = event.delta as string;
@@ -170,15 +222,16 @@ export class RealtimeClient {
       this.callbacks.onTranscript({ role: "ai", text });
     }
 
-    if (type === "input_audio_buffer.speech_started") {
-      this.callbacks.onTranscript({ role: "user", text: "", isTyping: true });
-    }
-
     if (type === "conversation.item.input_audio_transcription.completed") {
       const transcript = event.transcript as string;
       if (transcript.trim()) {
         this.completedUserTranscripts.push(transcript.trim());
-        this.callbacks.onTranscript({ role: "user", text: transcript });
+        // Only surface the transcript to the UI after the user has explicitly
+        // submitted; with VAD disabled this event should only fire post-commit,
+        // but guard defensively in case of a pre-session.update race window.
+        if (this.hasSubmittedAnswer) {
+          this.callbacks.onTranscript({ role: "user", text: transcript });
+        }
       }
     }
 
@@ -215,6 +268,7 @@ export class RealtimeClient {
         this.pinnedQuestionId = null;
         this.currentQuestionId = q.question_id;
         this.completedUserTranscripts = [];
+        this.hasSubmittedAnswer = false;
         this.callbacks.onQuestion({
           question_id: q.question_id,
           question_text: q.question_text,
@@ -263,7 +317,7 @@ export class RealtimeClient {
       },
     });
 
-    this.sendEvent({ type: "response.create" });
+    this.sendResponseCreate();
   }
 }
 
