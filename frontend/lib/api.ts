@@ -108,6 +108,7 @@ export function getNextQuestion(
 export interface AttemptCreated {
   attempt_id: string;
   status: string;
+  transcript: string;
 }
 
 export function createAttempt(
