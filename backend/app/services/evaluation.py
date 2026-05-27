@@ -132,6 +132,22 @@ class OpenAIEvaluationProvider(EvaluationProvider):
 class ClaudeEvaluationProvider(EvaluationProvider):
     MODEL = "claude-haiku-4-5-20251001"
 
+    _TOOL: dict = {
+        "name": "submit_evaluation",
+        "description": "Submit structured evaluation result",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "score": {"type": "integer"},
+                "summary": {"type": "string"},
+                "missing_points": {"type": "array", "items": {"type": "string"}},
+                "next_focus": {"type": "array", "items": {"type": "string"}},
+                "ideal_answer": {"type": "string"},
+            },
+            "required": ["score", "summary", "missing_points", "next_focus", "ideal_answer"],
+        },
+    }
+
     async def evaluate(
         self, question: str, reference_answer: str, transcript: str
     ) -> EvaluationResult:
@@ -144,15 +160,24 @@ class ClaudeEvaluationProvider(EvaluationProvider):
         prompt = self._build_prompt(question, reference_answer, transcript)
         message = await client.messages.create(
             model=self.MODEL,
-            max_tokens=1024,
+            max_tokens=2048,
+            tools=[self._TOOL],
+            tool_choice={"type": "tool", "name": "submit_evaluation"},
             messages=[{"role": "user", "content": prompt}],
         )
-        raw = message.content[0].text if message.content else "{}"
-        return self._parse_result(raw, "claude", self.MODEL)
+        for block in message.content:
+            if hasattr(block, "input"):
+                data = dict(block.input)
+                data["provider"] = "claude"
+                data["model"] = self.MODEL
+                data.setdefault("ideal_answer", "")
+                data["score"] = max(0, min(100, int(data["score"])))
+                return EvaluationResult(**data)
+        raise ValueError("Claude returned no tool_use block")
 
 
 class GeminiEvaluationProvider(EvaluationProvider):
-    MODEL = "gemini-1.5-flash"
+    MODEL = "gemini-2.5-flash"
 
     async def evaluate(
         self, question: str, reference_answer: str, transcript: str
@@ -165,7 +190,12 @@ class GeminiEvaluationProvider(EvaluationProvider):
         import google.generativeai as genai
 
         genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel(self.MODEL)
+        model = genai.GenerativeModel(
+            self.MODEL,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json"
+            ),
+        )
         prompt = self._build_prompt(question, reference_answer, transcript)
         response = await asyncio.to_thread(model.generate_content, prompt)
         raw = response.text if response.text else "{}"

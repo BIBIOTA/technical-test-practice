@@ -152,8 +152,8 @@ def _build_realtime_session_config(mode: str) -> dict:
         "tool_choice": "auto",
         "audio": {
             "input": {
-                "transcription": {"model": "whisper-1", "language": "zh"},
+                "transcription": {"model": "gpt-4o-transcribe", "language": "zh-TW"},
             },
-            "output": {"voice": "alloy"},
+            "output": {"voice": "coral"},
         },
     }
