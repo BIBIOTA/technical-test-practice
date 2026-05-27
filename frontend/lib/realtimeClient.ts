@@ -36,6 +36,7 @@ export class RealtimeClient {
   private currentQuestionId: string | null = null;
   private pinnedQuestionId: string | null;
   private completedUserTranscripts: string[] = [];
+  private functionCallBuffers = new Map<string, string>();
 
   constructor(
     sessionId: string,
@@ -161,8 +162,17 @@ export class RealtimeClient {
       }
     }
 
+    if (type === "response.function_call_arguments.delta") {
+      const callId = event.call_id as string;
+      const delta = event.delta as string;
+      this.functionCallBuffers.set(callId, (this.functionCallBuffers.get(callId) ?? "") + delta);
+    }
+
     if (type === "response.function_call_arguments.done") {
-      await this.handleToolCall(event);
+      const callId = event.call_id as string;
+      const accumulated = this.functionCallBuffers.get(callId) ?? (event.arguments as string);
+      this.functionCallBuffers.delete(callId);
+      await this.handleToolCall({ ...event, arguments: accumulated });
     }
   }
 
