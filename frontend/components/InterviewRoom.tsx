@@ -152,7 +152,7 @@ export default function InterviewRoom({
       {isCompleted && (
         <button
           onClick={onNextQuestion}
-          className="px-4 py-2.5 rounded-xl text-sm"
+          className="px-4 py-2.5 rounded-xl text-sm cursor-pointer transition-opacity hover:opacity-80"
           style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
         >
           {mode === "single" ? "← 返回題目列表" : "下一題 →"}
