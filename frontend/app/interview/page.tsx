@@ -42,6 +42,7 @@ function InterviewContent() {
   const [fatalError, setFatalError] = useState<(ParsedError & { isNetwork: boolean }) | null>(null);
   const [toastError, setToastError] = useState<ToastError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEvalTimedOut, setIsEvalTimedOut] = useState(false);
 
   // Sync mute state to mic stream tracks
   useEffect(() => {
@@ -60,6 +61,11 @@ function InterviewContent() {
     const timer = setTimeout(() => setToastError(null), 8000);
     return () => clearTimeout(timer);
   }, [toastError]);
+
+  // Cleanup submit timeout on unmount
+  useEffect(() => () => {
+    if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current);
+  }, []);
 
   function handleMuteToggle() {
     setIsMuted((v) => !v);
@@ -106,6 +112,7 @@ function InterviewContent() {
           submitTimeoutRef.current = null;
         }
         setIsSubmitting(false);
+        setIsEvalTimedOut(false);
         setEvalResult(result as EvaluationResult);
         setAnswerSummary(result.summary);
         setIsCompleted(true);
@@ -158,10 +165,11 @@ function InterviewContent() {
   }
 
   function handleSubmitAnswer() {
-    if (!currentQuestion || isSubmitting) return;
+    if (!currentQuestion || isSubmitting || isEvalTimedOut) return;
     setIsSubmitting(true);
     submitTimeoutRef.current = setTimeout(() => {
       setIsSubmitting(false);
+      setIsEvalTimedOut(true);
       submitTimeoutRef.current = null;
       setToastError({
         title: "評分逾時",
