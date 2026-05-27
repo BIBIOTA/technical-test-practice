@@ -149,13 +149,15 @@ export default function InterviewRoom({
           {isSubmitting ? "評分中..." : "送出答案"}
         </button>
       )}
-      <button
-        onClick={onNextQuestion}
-        className="px-4 py-2.5 rounded-xl text-sm"
-        style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
-      >
-        下一題 →
-      </button>
+      {isCompleted && (
+        <button
+          onClick={onNextQuestion}
+          className="px-4 py-2.5 rounded-xl text-sm"
+          style={{ background: "var(--color-surface-elevated)", color: "var(--color-text-secondary)" }}
+        >
+          {mode === "single" ? "← 返回題目列表" : "下一題 →"}
+        </button>
+      )}
     </div>
   );
 

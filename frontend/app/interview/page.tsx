@@ -130,12 +130,19 @@ function InterviewContent() {
     router.push("/");
   }
 
-  function handleNextQuestion() {
+  async function handleNextQuestion() {
+    if (mode === "single") {
+      clientRef.current?.disconnect();
+      micStream?.getTracks().forEach((t) => t.stop());
+      setMicStream(null);
+      await completeSession(sessionId).catch(() => {});
+      router.push(`/questions/select?provider=${provider}`);
+      return;
+    }
     setIsCompleted(false);
     setEvalResult(null);
     setAnswerSummary("");
     setActiveTab("transcript");
-    setCurrentQuestion(null);
     clientRef.current?.requestNextQuestion();
   }
 
@@ -313,7 +320,6 @@ function InterviewContent() {
           ) : evalResult ? (
             <EvalResultCard
               evaluation={evalResult}
-              onNext={handleNextQuestion}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">

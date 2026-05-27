@@ -8,7 +8,6 @@ interface Props {
     ease_factor: number | null;
     interval_days: number | null;
   };
-  onNext?: () => void;
 }
 
 const DIMENSIONS = [
@@ -18,7 +17,7 @@ const DIMENSIONS = [
   { key: "問題解決", color: "#10B981" },
 ];
 
-export default function EvalResultCard({ evaluation, sm2, onNext }: Props) {
+export default function EvalResultCard({ evaluation, sm2 }: Props) {
   return (
     <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
       {/* Score Card */}
@@ -145,15 +144,6 @@ export default function EvalResultCard({ evaluation, sm2, onNext }: Props) {
         )}
       </div>
 
-      {onNext && (
-        <button
-          onClick={onNext}
-          className="w-full py-4 rounded-xl font-semibold text-sm text-white"
-          style={{ background: "var(--color-primary)" }}
-        >
-          下一題 →
-        </button>
-      )}
     </div>
   );
 }
