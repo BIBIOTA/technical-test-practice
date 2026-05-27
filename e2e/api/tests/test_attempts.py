@@ -15,6 +15,7 @@ def test_create_attempt(client, session_id, question_id):
     body = response.json()
     assert "attempt_id" in body
     assert body["status"] == "pending_evaluation"
+    assert body["transcript"] == "A REST API uses HTTP methods to interact with resources."
 
 
 def test_get_attempt_result(client, session_id, question_id):

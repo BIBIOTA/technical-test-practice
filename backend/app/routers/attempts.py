@@ -12,6 +12,7 @@ from app.models.interview_session import InterviewSession
 from app.models.question import Question
 from app.services.evaluation import get_provider
 from app.services.sm2 import get_or_create_sm2_state, update_sm2
+from app.services.transcript import normalize_transcript
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
 
@@ -29,10 +30,11 @@ async def create_attempt(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(verify_token),
 ) -> dict:
+    cleaned = await normalize_transcript(body.transcript or "")
     attempt = Attempt(
         session_id=body.session_id,
         question_id=body.question_id,
-        transcript=body.transcript,
+        transcript=cleaned,
         status="pending_evaluation",
     )
     db.add(attempt)
@@ -41,7 +43,11 @@ async def create_attempt(
 
     background_tasks.add_task(_run_evaluation, attempt.id)
 
-    return {"attempt_id": str(attempt.id), "status": attempt.status}
+    return {
+        "attempt_id": str(attempt.id),
+        "status": attempt.status,
+        "transcript": attempt.transcript,
+    }
 
 
 async def _run_evaluation(attempt_id: uuid.UUID) -> None:
