@@ -121,24 +121,6 @@ export class RealtimeClient {
     this.callbacks.onStatusChange("disconnected");
   }
 
-  notifyManualEvalComplete(attemptId: string): void {
-    this.currentAttemptId = attemptId;
-    // Silent notification — no response.create so the AI doesn't speak before the user
-    // clicks "next question".  This puts the AI's conversation state in sync with what
-    // the REST-API submit path already did outside of the voice flow.
-    this.sendEvent({
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "user",
-        content: [{
-          type: "input_text",
-          text: `[系統通知] 應試者已透過介面按鈕送出答案，後端已完成 mark_answer_completed 與評分（attempt_id: ${attemptId}）。工作流程中第4～8步均已完成。請直接跳至第9步：詢問是否繼續下一題。`,
-        }],
-      },
-    });
-  }
-
   requestNextQuestion(): void {
     this.sendEvent({
       type: "conversation.item.create",
@@ -148,6 +130,11 @@ export class RealtimeClient {
         content: [{ type: "input_text", text: "請繼續下一題" }],
       },
     });
+    this.sendEvent({ type: "response.create" });
+  }
+
+  submitAnswer(): void {
+    this.sendEvent({ type: "input_audio_buffer.commit" });
     this.sendEvent({ type: "response.create" });
   }
 
