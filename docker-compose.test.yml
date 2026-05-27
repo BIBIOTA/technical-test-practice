@@ -2,8 +2,8 @@ services:
   postgres-test:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: interview
-      POSTGRES_PASSWORD: interview
+      POSTGRES_USER: ${POSTGRES_USER:-interview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-interview}
       POSTGRES_DB: interview_practice_test
     ports:
       - "5433:5432"
@@ -17,7 +17,7 @@ services:
     build: ./backend
     env_file: .env.test
     environment:
-      DATABASE_URL: postgresql+asyncpg://interview:interview@postgres-test:5432/interview_practice_test
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-interview}:${POSTGRES_PASSWORD:-interview}@postgres-test:5432/interview_practice_test
       INTERVIEW_TOKEN: test-token
     ports:
       - "8001:8000"

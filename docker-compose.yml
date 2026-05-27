@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: interview
-      POSTGRES_PASSWORD: interview
+      POSTGRES_USER: ${POSTGRES_USER:-interview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-interview}
       POSTGRES_DB: interview_practice
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -17,7 +17,7 @@ services:
     build: ./backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://interview:interview@postgres:5432/interview_practice
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-interview}:${POSTGRES_PASSWORD:-interview}@postgres:5432/interview_practice
     ports:
       - "8001:8000"
     depends_on:
