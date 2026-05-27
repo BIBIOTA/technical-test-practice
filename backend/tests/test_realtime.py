@@ -18,6 +18,10 @@ class RealtimeSessionConfigTest(unittest.TestCase):
             {"model": "gpt-4o-transcribe", "language": "zh"},
         )
 
+    def test_output_voice_uses_cedar(self) -> None:
+        session = _build_realtime_session_config("single")
+        self.assertEqual(session["audio"]["output"], {"voice": "cedar"})
+
 
 if __name__ == "__main__":
     unittest.main()

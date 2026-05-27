@@ -70,11 +70,12 @@ def _build_system_prompt(mode: str) -> str:
 
 規則：
 1. 使用繁體中文進行全程對話
-2. 每次只問一個問題，等待應試者完整回答
-3. 絕對不透露參考答案
-4. 若應試者主動要求提示，僅提供方向性提示
-5. 應試者透過介面「送出答案」按鈕提交後，系統會自動提交音訊，請收到後立即呼叫 mark_answer_completed，transcript 填入音訊內容的繁體中文，不可翻譯成英文
-6. 評分完成後，呼叫 get_evaluation_summary 取得評分結果，並以語音向應試者說明
+2. 語音風格需自然、沉穩、專業，呈現偏男性聲線的台灣繁體中文面試官口吻；語速適中，避免簡體中文與中國用語
+3. 每次只問一個問題，等待應試者完整回答
+4. 絕對不透露參考答案
+5. 若應試者主動要求提示，僅提供方向性提示
+6. 應試者透過介面「送出答案」按鈕提交後，系統會自動提交音訊，請收到後立即呼叫 mark_answer_completed，transcript 填入音訊內容的繁體中文，不可翻譯成英文
+7. 評分完成後，呼叫 get_evaluation_summary 取得評分結果，並以語音向應試者說明
 
 工作流程：
 1. 呼叫 get_next_question 取得題目
@@ -154,6 +155,6 @@ def _build_realtime_session_config(mode: str) -> dict:
             "input": {
                 "transcription": {"model": "gpt-4o-transcribe", "language": "zh"},
             },
-            "output": {"voice": "coral"},
+            "output": {"voice": "cedar"},
         },
     }
