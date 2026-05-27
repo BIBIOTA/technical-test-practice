@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createSession, listQuestions, type QuestionSummary } from "../../../lib/api";
-import { parseConnectionError } from "../../../lib/errors";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "llm-engineering": "#6C63FF",
@@ -51,7 +50,11 @@ function QuestionSelectContent() {
     try {
       setQuestions(await listQuestions());
     } catch (err) {
-      setFetchError(parseConnectionError(err).message);
+      setFetchError(
+        err instanceof TypeError
+          ? "無法連線到後端伺服器，請確認伺服器已啟動後重試。"
+          : "無法載入題目清單，請稍後再試。"
+      );
     } finally {
       setLoading(false);
     }
@@ -74,7 +77,11 @@ function QuestionSelectContent() {
         `/interview?session_id=${session.session_id}&mode=single&provider=${provider}&question_id=${question.question_id}`
       );
     } catch (err) {
-      setStartError(parseConnectionError(err).message);
+      setStartError(
+        err instanceof TypeError
+          ? "無法連線到後端伺服器，請確認伺服器已啟動後重試。"
+          : "建立練習失敗，請稍後再試。"
+      );
       setStartingId(null);
     }
   }
