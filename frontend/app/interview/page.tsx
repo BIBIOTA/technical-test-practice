@@ -151,6 +151,7 @@ function InterviewContent() {
       const result = await pollAttemptResult(attempt.attempt_id);
       if (result.status === "completed") {
         const summary = await getAttemptSummary(attempt.attempt_id);
+        clientRef.current?.notifyManualEvalComplete(attempt.attempt_id);
         setEvalResult(summary as EvaluationResult);
         setAnswerSummary(summary.summary);
         setIsCompleted(true);
