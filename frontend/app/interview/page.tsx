@@ -6,7 +6,7 @@ import EvalResultCard from "../../components/EvalResultCard";
 import ErrorOverlay from "../../components/ErrorOverlay";
 import InterviewRoom from "../../components/InterviewRoom";
 import TranscriptPanel from "../../components/TranscriptPanel";
-import { completeSession, createAttempt, getAttemptSummary, pollAttemptResult, type EvaluationResult, type NextQuestion } from "../../lib/api";
+import { completeSession, type EvaluationResult, type NextQuestion } from "../../lib/api";
 import { parseConnectionError, type ParsedError } from "../../lib/errors";
 import { RealtimeClient, type TranscriptMessage } from "../../lib/realtimeClient";
 
@@ -26,6 +26,7 @@ function InterviewContent() {
   const questionId = params.get("question_id") ?? undefined;
 
   const clientRef = useRef<RealtimeClient | null>(null);
+  const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("transcript");
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<NextQuestion | null>(null);
@@ -100,6 +101,11 @@ function InterviewContent() {
         setQuestionIndex((i) => i + 1);
       },
       onEvalResult: (result) => {
+        if (submitTimeoutRef.current) {
+          clearTimeout(submitTimeoutRef.current);
+          submitTimeoutRef.current = null;
+        }
+        setIsSubmitting(false);
         setEvalResult(result as EvaluationResult);
         setAnswerSummary(result.summary);
         setIsCompleted(true);
@@ -107,6 +113,11 @@ function InterviewContent() {
       },
       onStatusChange: setConnectionStatus,
       onError: (msg) => {
+        if (submitTimeoutRef.current) {
+          clearTimeout(submitTimeoutRef.current);
+          submitTimeoutRef.current = null;
+        }
+        setIsSubmitting(false);
         const parsed = parseConnectionError(new Error(msg));
         setToastError({ ...parsed, severity: "warning" });
       },
@@ -146,32 +157,19 @@ function InterviewContent() {
     clientRef.current?.requestNextQuestion();
   }
 
-  async function handleSubmitAnswer() {
+  function handleSubmitAnswer() {
     if (!currentQuestion || isSubmitting) return;
     setIsSubmitting(true);
-    const userTranscript = transcripts
-      .filter((m) => m.role === "user" && !m.isTyping)
-      .map((m) => m.text)
-      .join(" ");
-    try {
-      const attempt = await createAttempt(sessionId, currentQuestion.question_id, userTranscript);
-      const result = await pollAttemptResult(attempt.attempt_id);
-      if (result.status === "completed") {
-        const summary = await getAttemptSummary(attempt.attempt_id);
-        clientRef.current?.notifyManualEvalComplete(attempt.attempt_id);
-        setEvalResult(summary as EvaluationResult);
-        setAnswerSummary(summary.summary);
-        setIsCompleted(true);
-        setActiveTab("eval");
-      } else {
-        throw new Error("Evaluation failed");
-      }
-    } catch (err) {
-      const parsed = parseConnectionError(err);
-      setToastError({ ...parsed, severity: "error" });
-    } finally {
+    submitTimeoutRef.current = setTimeout(() => {
       setIsSubmitting(false);
-    }
+      submitTimeoutRef.current = null;
+      setToastError({
+        title: "評分逾時",
+        message: "AI 未能及時完成評分，請重試",
+        severity: "error",
+      });
+    }, 30000);
+    clientRef.current?.submitAnswer();
   }
 
   return (
