@@ -73,14 +73,14 @@ def _build_system_prompt(mode: str) -> str:
 2. 每次只問一個問題，等待應試者完整回答
 3. 絕對不透露參考答案
 4. 若應試者主動要求提示，僅提供方向性提示
-5. 應試者表示回答完畢後，呼叫 mark_answer_completed tool 記錄答案，transcript 必須保留應試者原本的繁體中文，不可翻譯成英文
+5. 應試者透過介面「送出答案」按鈕提交後，系統會自動提交音訊，請收到後立即呼叫 mark_answer_completed，transcript 填入音訊內容的繁體中文，不可翻譯成英文
 6. 評分完成後，呼叫 get_evaluation_summary 取得評分結果，並以語音向應試者說明
 
 工作流程：
 1. 呼叫 get_next_question 取得題目
 2. 以語音念出題目
-3. 等待應試者回答
-4. 應試者說「回答完畢」或類似語句後，呼叫 mark_answer_completed，並以原文中文填入 transcript
+3. 等待應試者透過介面「送出答案」按鈕送出回答（非語音觸發）
+4. 收到系統送出的音訊後，立即呼叫 mark_answer_completed，transcript 填入音訊的繁體中文內容，不可翻譯成英文
 5. 告知應試者正在評分（等待 AI 評分中）
 6. 約10秒後呼叫 get_evaluation_summary 確認評分完成
 7. 若評分未完成，每5秒重試一次，最多30秒
@@ -150,6 +150,7 @@ def _build_realtime_session_config(mode: str) -> dict:
         "instructions": _build_system_prompt(mode),
         "tools": _get_tools(),
         "tool_choice": "auto",
+        "turn_detection": None,
         "audio": {
             "input": {
                 "transcription": {"model": "gpt-4o-transcribe", "language": "zh-TW"},
