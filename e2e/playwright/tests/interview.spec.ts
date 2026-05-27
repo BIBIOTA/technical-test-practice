@@ -231,7 +231,7 @@ test("keeps answer controls visible after evaluation completes", async ({ page }
   await expect(page.getByText("完整回答應說明索引、查詢計畫、快取策略與一致性取捨。")).toBeVisible();
   await expect(page.getByRole("button", { name: /開啟麥克風|靜音/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "送出答案" })).toBeVisible();
-  await expect(page.locator("button", { hasText: "下一題 →" }).first()).toBeVisible();
+  await expect(page.locator("button", { hasText: "← 返回題目列表" }).first()).toBeVisible();
 });
 
 test("realtime answer submission keeps Chinese transcript and shows feedback text", async ({ page }) => {
