@@ -68,12 +68,30 @@ async def _run_evaluation(attempt_id: uuid.UUID) -> None:
             await db.commit()
             return
 
+        transcript = attempt.transcript or ""
+
+        if not transcript.strip():
+            attempt.status = "completed"
+            attempt.score = 0
+            attempt.evaluation = {
+                "score": 0,
+                "summary": "未提供任何回答，無法評分。",
+                "missing_points": ["請提供完整的技術回答。"],
+                "next_focus": ["嘗試用語音回答題目後再送出。"],
+                "ideal_answer": "",
+                "provider": "system",
+                "model": "none",
+            }
+            attempt.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            return
+
         try:
             provider = get_provider(session.eval_provider)
             evaluation = await provider.evaluate(
                 question=question.text,
                 reference_answer=question.reference_answer,
-                transcript=attempt.transcript or "",
+                transcript=transcript,
             )
 
             attempt.status = "completed"
