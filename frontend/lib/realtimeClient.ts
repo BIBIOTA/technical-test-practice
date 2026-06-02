@@ -1,6 +1,6 @@
 "use client";
 
-import { createAttempt, createClientSecret, getAttemptSummary, getNextQuestion, pollAttemptResult } from "./api";
+import { createAttempt, createClientSecret, getAttemptSummary, getNextQuestion, pollAttemptResult, type NextQuestion } from "./api";
 import { ApiError } from "./errors";
 
 export interface TranscriptMessage {
@@ -35,6 +35,7 @@ export class RealtimeClient {
   private currentAttemptId: string | null = null;
   private currentQuestionId: string | null = null;
   private pinnedQuestionId: string | null;
+  private initialQuestion: NextQuestion | null;
   private completedUserTranscripts: string[] = [];
   private functionCallBuffers = new Map<string, string>();
   private hasSubmittedAnswer = false;
@@ -46,12 +47,14 @@ export class RealtimeClient {
     sessionId: string,
     mode: string,
     callbacks: RealtimeCallbacks,
-    options?: { pinnedQuestionId?: string }
+    options?: { pinnedQuestionId?: string; initialQuestion?: NextQuestion | null }
   ) {
     this.sessionId = sessionId;
     this.mode = mode;
     this.callbacks = callbacks;
     this.pinnedQuestionId = options?.pinnedQuestionId ?? null;
+    this.initialQuestion = options?.initialQuestion ?? null;
+    this.currentQuestionId = this.initialQuestion?.question_id ?? null;
   }
 
   async connect(providedStream?: MediaStream): Promise<void> {
@@ -93,6 +96,23 @@ export class RealtimeClient {
           },
         },
       });
+      if (this.initialQuestion) {
+        this.sendEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{
+              type: "input_text",
+              text: [
+                "系統已指定本次 single mode 題目。",
+                "請直接朗讀以下題目，不要呼叫 get_next_question，不要自行替換或改寫題目：",
+                this.initialQuestion.question_text,
+              ].join("\n"),
+            }],
+          },
+        });
+      }
       // Kick off the first AI response — gpt-realtime-2025-08-28 does not auto-start
       this.sendResponseCreate();
     };
@@ -247,30 +267,32 @@ export class RealtimeClient {
 
     try {
       if (name === "get_next_question") {
-        const q = await getNextQuestion(
-          this.sessionId,
-          args.mode ?? this.mode,
-          args.category,
-          args.difficulty,
-          this.pinnedQuestionId ?? undefined
-        );
+        const q = this.initialQuestion ?? (await getNextQuestion(
+            this.sessionId,
+            args.mode ?? this.mode,
+            args.category,
+            args.difficulty,
+            this.pinnedQuestionId ?? undefined
+          ));
         this.pinnedQuestionId = null;
         this.currentQuestionId = q.question_id;
         this.completedUserTranscripts = [];
         this.hasSubmittedAnswer = false;
-        this.callbacks.onQuestion({
-          question_id: q.question_id,
-          question_text: q.question_text,
-          category: q.category,
-          difficulty: q.difficulty,
-        });
+        if (!this.initialQuestion) {
+          this.callbacks.onQuestion({
+            question_id: q.question_id,
+            question_text: q.question_text,
+            category: q.category,
+            difficulty: q.difficulty,
+          });
+        }
         output = q;
       } else if (name === "mark_answer_completed") {
         const capturedTranscript = this.completedUserTranscripts.join(" ").trim();
         const transcript = capturedTranscript || String(args.transcript ?? "").trim();
         const attempt = await createAttempt(
           this.sessionId,
-          args.question_id ?? this.currentQuestionId ?? "",
+          this.currentQuestionId ?? args.question_id ?? "",
           transcript
         );
         this.currentAttemptId = attempt.attempt_id;

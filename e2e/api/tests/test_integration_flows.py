@@ -57,6 +57,7 @@ def test_single_question_flow_completes_evaluation_and_updates_sm2(client):
         "summary",
         "missing_points",
         "next_focus",
+        "ideal_answer",
         "provider",
         "model",
     }

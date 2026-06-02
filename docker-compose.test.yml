@@ -32,8 +32,14 @@ services:
       start_period: 10s
 
   frontend-test:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend-test:8000
+        NEXT_PUBLIC_INTERVIEW_TOKEN: test-token
     environment:
+      BACKEND_URL: http://backend-test:8000
+      NEXT_PUBLIC_INTERVIEW_TOKEN: test-token
       NEXT_PUBLIC_API_URL: http://localhost:8001
     ports:
       - "3001:3000"

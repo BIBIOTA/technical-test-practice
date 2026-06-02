@@ -299,6 +299,11 @@ export default function InterviewRoom({
               <p className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
                 準備好了嗎？
               </p>
+              {currentQuestion && (
+                <p className="text-sm font-medium leading-relaxed max-w-2xl" style={{ color: "var(--color-text-primary)" }}>
+                  {currentQuestion.question_text}
+                </p>
+              )}
               <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 開始後麥克風預設為關閉，您可隨時開啟
               </p>

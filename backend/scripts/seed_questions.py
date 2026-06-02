@@ -286,6 +286,281 @@ def get_all_permutations(items):
     },
     {
         "id": uuid.uuid4(),
+        "notion_id": "36d7c329-f14b-801d-b0a9-e13c32fbf8ca",
+        "text": "請說明空間複雜度（Space Complexity）是什麼？它與時間複雜度有何異同？請舉例說明常見空間複雜度與實務上的時間／空間取捨。",
+        "category": "algorithms",
+        "difficulty": "medium",
+        "tags": ["algorithms", "space-complexity", "big-o", "cs-fundamentals"],
+        "reference_answer": """空間複雜度是用來描述演算法在執行過程中，隨著輸入資料量 n 增長而需要多少記憶體資源的指標。工程與面試情境中常說的空間複雜度，通常指的是 **輔助空間（Auxiliary Space）**，也就是不包含輸入資料本身、演算法額外配置的記憶體。
+
+## 空間複雜度的組成
+
+嚴格來說，空間複雜度包含兩部分：
+
+1. **輸入空間（Input Space）：** 儲存輸入資料本身所需的記憶體。
+2. **輔助空間（Auxiliary Space）：** 演算法執行時額外宣告的變數、資料結構，或遞迴呼叫堆疊（Call Stack）所使用的記憶體。
+
+實務分析時，通常會聚焦在輔助空間，因為輸入資料本來就已存在，真正能由演算法設計控制的是額外配置的空間。
+
+## 與時間複雜度的相同之處
+
+兩者都用 **Big O 符號** 描述資源消耗隨 n 增長的趨勢，也都忽略常數與低階項，只關注資料量變大時的成長速度。
+
+常見排序由省資源到耗資源為：
+
+**O(1) < O(log n) < O(n) < O(n log n) < O(n^2) < O(2^n) < O(n!)**
+
+差別在於時間複雜度看的是 CPU 執行步驟數，空間複雜度看的是額外記憶體使用量。
+
+## 與時間複雜度的不同之處
+
+時間複雜度過高時，常見結果是系統變慢、卡頓或 API timeout；但空間複雜度過高時，可能直接觸發 OOM（Out of Memory），讓 process 或整台服務崩潰。
+
+在高併發系統中，這點特別重要。若每個 request 都配置大型陣列，即使單次請求看起來可接受，流量瞬間增加時仍可能快速耗盡記憶體。
+
+## 常見空間複雜度
+
+### O(1) - 常數空間
+不論輸入資料量多大，只使用固定數量的額外變數。
+
+```python
+def get_sum(items):
+    total = 0
+    for item in items:
+        total += item
+    return total
+```
+
+這個函式只額外使用 `total`，沒有建立會隨 `items` 長度增長的資料結構，因此是 O(1)。
+
+### O(log n) - 對數空間
+常見於每次遞迴都把問題規模減半的演算法，例如遞迴版二分搜尋。額外空間主要來自 Call Stack，最大遞迴深度為 log n。
+
+```python
+def binary_search_recursive(sorted_list, target, left, right):
+    if left > right:
+        return -1
+    mid = (left + right) // 2
+    if sorted_list[mid] == target:
+        return mid
+    if sorted_list[mid] < target:
+        return binary_search_recursive(sorted_list, target, mid + 1, right)
+    return binary_search_recursive(sorted_list, target, left, mid - 1)
+```
+
+### O(n) - 線性空間
+額外建立一個大小與輸入資料量成正比的資料結構。
+
+```python
+def clone_users(users):
+    copied_users = []
+    for user in users:
+        copied_users.append(user.copy())
+    return copied_users
+```
+
+若有 n 個 user，就會額外建立 n 筆 copied user，因此是 O(n)。
+
+### O(n^2) - 平方空間
+常見於建立 n x n 的二維矩陣，例如動態規劃表格或圖的相鄰矩陣。
+
+```python
+def create_matrix(n):
+    matrix = []
+    for _ in range(n):
+        matrix.append([0] * n)
+    return matrix
+```
+
+這會建立 n 列、每列 n 個元素的二維資料結構，因此空間為 O(n^2)。
+
+## 時間與空間的取捨
+
+實務上常需要在時間與空間之間取捨：
+
+- **用空間換時間：** 使用 Redis 快取、資料庫索引、Hash Map 或 Set 預先儲存資料，增加 O(n) 空間，但可能讓查詢或比對從 O(n) / O(n^2) 降到 O(1) 或 O(n)。
+- **用時間換空間：** 處理大檔案時使用 streaming / iterator 逐行讀取，不一次把整個檔案載入記憶體，犧牲部分 I/O 時間來降低記憶體壓力。
+
+好的演算法與系統設計，不是只追求最低時間複雜度或最低空間複雜度，而是根據資料量、併發量、硬體限制與成本，在時間和空間之間做合理平衡。""",
+    },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "3697c329-f14b-8031-9c12-a8b4cc2d1e06",
+        "text": "軟體開發中如何評估測試的品質？請說明常見的測試指標。",
+        "category": "testing",
+        "difficulty": "medium",
+        "tags": ["testing", "qa", "metrics", "code-coverage"],
+        "reference_answer": """評估測試品質不能只靠覆蓋率，通常會結合以下三個層次的指標：
+
+## 測試覆蓋率（Test Coverage）
+
+有三個細緻程度不同的指標：
+
+| 指標 | 說明 |
+|------|------|
+| Line Coverage | 最寬鬆，每行程式碼跑過就算通過 |
+| Branch Coverage | 每個條件分支（If / Else）都要走到，較有意義 |
+| Mutation Testing | 產生「突變體（mutant）」後重新跑測試；若測試抓到變化（KILLED），代表測試有效；若突變體存活（SURVIVED），代表測試有漏洞 |
+
+**覆蓋率高 ≠ 測試好**，Code Coverage 只是基本門檻。
+
+## 缺陷逃逸率（Defect Escape Rate）
+
+衡量哪些 Bug 沒被測試攔截，直到 Production 才被發現：
+
+```
+缺陷逃逸率 = 發佈後發現的缺陷數 ÷ 發佈前後的總缺陷數 × 100%
+```
+
+這個指標能最直接反映功能交付與測試驗收的品質。
+
+## Issue Severity（嚴重程度分級）
+
+單純計算缺陷逃逸率無法反映嚴重性（1 個 P0 遠比 10 個 P4 嚴重）。因此需要對每個線上 Issue 區分 Priority：
+
+| 優先級 | 緊急程度 | 範例 | 回應方式 |
+|--------|----------|------|----------|
+| P0 | 緊急 | 系統中斷 | 立即處理 |
+| P1 | 高 | 主要功能異常 | 緊急排程處理 |
+| P2 | 中等 | 次要功能異常 | 排定優先順序 |
+| P3 | 低 | 少數用戶受影響 | 納入例行工作 |
+| P4 | 可忽略 | 輕微問題 | 放入待辦清單 |
+
+P0 發生後通常需進行 **AAR（After-Action Report）**，識別問題、提出對策、記錄 Lessons Learned。AAR 發生頻率本身也是衡量產品健康度的依據。""",
+    },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "36a7c329-f14b-8001-b421-c8d9e0f1a2b3",
+        "text": "資料庫層級有哪些方法可以避免 Race Condition（競態條件）？請比較各方法的適用情境。",
+        "category": "database",
+        "difficulty": "hard",
+        "tags": ["database", "race-condition", "concurrency", "locking"],
+        "reference_answer": """在高併發場景下（如搶購庫存），同時有兩個請求讀取並更新同一筆資料，可能導致庫存查詢不一致甚至超賣（Race Condition）。資料庫層級有三種主要的解決策略：
+
+## 1. Atomic Update（原子更新）
+
+不把「讀取」和「寫入」拆成兩步，直接利用 UPDATE 語句自帶的 Row-level Lock 在一句 SQL 內完成檢查與扣減：
+
+```sql
+UPDATE products
+SET stock = stock - 1
+WHERE id = 1 AND stock >= 1;
+```
+
+執行後檢查 `affected_rows`：等於 1 代表成功，等於 0 代表庫存不足。
+
+- **優點：** 簡單、效能好，Deadlock 風險低
+- **缺點：** 業務邏輯複雜時（如需跨多資料判斷）無法滿足
+
+## 2. Pessimistic Locking（悲觀鎖）
+
+讀取時先用 `SELECT ... FOR UPDATE` 鎖定資料列，直到 Transaction 結束才釋放，後續請求會被阻塞（Block）：
+
+```sql
+BEGIN;
+SELECT stock FROM products WHERE id = 1 FOR UPDATE;
+-- 應用程式判斷 stock > 0
+UPDATE products SET stock = stock - 1 WHERE id = 1;
+COMMIT;
+```
+
+- **優點：** 可應付複雜的商業邏輯
+- **缺點：** 高併發時大量連線排隊等待，容易造成 Connection Pool Exhaustion 或 Deadlock
+
+## 3. Optimistic Locking（樂觀鎖）
+
+增加 `version` 版本號欄位，更新時以版本號作為條件：
+
+```sql
+-- 讀取：stock=1, version=5
+UPDATE products
+SET stock = stock - 1, version = version + 1
+WHERE id = 1 AND version = 5 AND stock >= 1;
+```
+
+若兩個請求同時讀到 `version=5`，只有第一個 UPDATE 成功，第二個因 `version` 已改變而 `affected_rows=0`，回 Application 層重試。
+
+- **優點：** 讀取階段不鎖資料，適合讀多寫少的場景
+- **缺點：** 高衝突時大量 Transaction 失敗，需 Application 層實作 Retry Policy
+
+## 比較總覽
+
+| 策略 | 優點 | 缺點 | 適用場景 |
+|------|------|------|---------|
+| Atomic Update | 簡單、效能好 | 無法應付複雜關聯邏輯 | 單品庫存、優惠券數量、按讚數 |
+| Optimistic Locking | 讀取不鎖資料 | 高衝突時大量失敗 | 商品資料編輯、購物車 |
+| Pessimistic Locking | 最強一致性保護 | 效能差、Risk of Deadlock | 金融扣款、轉帳、複雜訂單流程 |
+
+## 欄位設計的最後防線
+
+- **MySQL：** `INT UNSIGNED` — 欄位值不允許為負數，超賣直接報錯
+- **PostgreSQL / 跨資料庫：** `CHECK Constraint`，如 `CHECK (stock >= 0)`
+
+這兩者是資料庫層級的最後防線，避免程式 bug 造成負庫存，不應作為主要的併發控制邏輯。""",
+    },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "36b7c329-f14b-8011-b823-d0e1f2a3b4c5",
+        "text": "什麼是 Redis 分布式鎖（Distributed Lock）？請說明其核心機制與需要注意的問題。",
+        "category": "backend",
+        "difficulty": "hard",
+        "tags": ["redis", "distributed-lock", "race-condition", "concurrency"],
+        "reference_answer": """在微服務架構下，應用程式部署在多台伺服器上，單純的資料庫鎖已無法滿足跨服務的互斥需求。Redis 憑藉極高的讀寫效能與單執行緒特性，成為實作分布式鎖的首選。
+
+## 核心三步驟
+
+### 1. 取得鎖
+使用單一 Redis 指令，確保「寫入鎖」與「設定過期時間」具備原子性：
+
+```
+SET lock_key unique_id NX PX 30000
+```
+
+- `NX`：確保只有第一個請求能寫入（Not Exists）
+- `unique_id`（如 UUID）：標記鎖的擁有者，釋放時比對用
+- `PX 30000`：設定 TTL，避免程式崩潰後死鎖
+
+### 2. 設定過期時間
+必須在設定鎖的同時給定 TTL（上方指令已包含），避免因程式崩潰導致鎖永久存在（Deadlock）。
+
+### 3. 釋放鎖
+**不能直接呼叫 `DEL`**，否則可能誤刪到別人的鎖。必須用 **Lua Script** 確保「比對 + 刪除」的原子性：
+
+```lua
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+end
+```
+
+## 進階問題：程式執行時間超過鎖的過期時間
+
+假設鎖設定 5 秒後過期，但某次處理花了 8 秒，第 5 秒時鎖被自動釋放，第二個請求趁虛而入，導致 Race Condition 再次發生。
+
+### 解法一：Lock Renewal（Watchdog 自動續期）
+
+持有鎖的程式在背景開一個 Watchdog，定期（例如每 1/3 過期時間）若工作仍在執行，就延長鎖的 TTL。Java 的 Redisson 套件已內建此機制。
+
+### 解法二：Fencing Token
+
+Martin Kleppmann 提出的根本解法。每次發鎖時附帶**單調遞增的 token**，下游資源拒絕比已見過的 token 更舊的寫入：
+
+```
+Request A 拿到 token=33 → GC 卡住 → 鎖過期
+Request B 拿到 token=34 → 寫入（資源記錄 last=34）
+Request A 恢復 → 帶 token=33 → 被拒絕（33 < 34）
+```
+
+代價是下游（DB / 儲存層）需支援版本號比對邏輯。
+
+## 結論
+
+Redis 分布式鎖適合在多服務架構中提供互斥保護，但需注意：
+1. 取得鎖與設定 TTL 必須是同一個原子指令
+2. 釋放鎖必須用 Lua Script 比對 unique_id 後才刪除
+3. 長時間任務需搭配 Lock Renewal 或 Fencing Token 防止鎖提前過期""",
+    },
+    {
+        "id": uuid.uuid4(),
         "notion_id": "3687c329-f14b-8022-96bb-f54da7d43283",
         "text": "什麼是黑箱測試（Black-box Testing）與白箱測試（White-box Testing）？請比較兩者差異並舉例。",
         "category": "testing",

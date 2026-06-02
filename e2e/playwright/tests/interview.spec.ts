@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const INTERVIEW_URL = "/interview?session_id=test-session-uuid&mode=single&provider=openai";
+const PINNED_INTERVIEW_URL =
+  `${INTERVIEW_URL}&question_id=aaaa0000-0000-0000-0000-000000000001`;
 
 async function denyMicrophone(page: import("@playwright/test").Page) {
   await page.addInitScript(() => {
@@ -127,6 +129,72 @@ test("interview page shows mic permission overlay on load", async ({ page }) => 
   await expect(page.locator("button", { hasText: "開始面試" })).toBeVisible();
 });
 
+test("single mode pinned question is loaded and sent to realtime before asking", async ({ page }) => {
+  await grantMicrophone(page);
+  await mockRealtimeStartup(page);
+
+  await page.route("**/questions/next**", async (route) => {
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("question_id")).toBe("aaaa0000-0000-0000-0000-000000000001");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        question_id: "aaaa0000-0000-0000-0000-000000000001",
+        question_text: "解釋時間複雜度（Time Complexity）與 Big O 符號，並舉例說明常見的複雜度級別。",
+        category: "algorithms",
+        difficulty: "medium",
+        tags: ["algorithms"],
+        sm2: { ease_factor: null, interval_days: null, next_review_at: null, last_score: null },
+      }),
+    });
+  });
+
+  await page.goto(PINNED_INTERVIEW_URL);
+
+  await expect(page.getByText("解釋時間複雜度（Time Complexity）與 Big O 符號")).toBeVisible();
+
+  await page.getByRole("button", { name: "開始面試" }).click();
+  await page.waitForFunction(() => Boolean((window as unknown as { __rtDataChannel?: unknown }).__rtDataChannel));
+
+  await expect
+    .poll(async () => page.evaluate(() => (window as unknown as { __rtSentEvents?: unknown[] }).__rtSentEvents ?? []))
+    .toContainEqual(expect.objectContaining({
+      type: "conversation.item.create",
+      item: expect.objectContaining({
+        role: "user",
+        content: expect.arrayContaining([
+          expect.objectContaining({
+            text: expect.stringContaining("解釋時間複雜度（Time Complexity）與 Big O 符號"),
+          }),
+        ]),
+      }),
+    }));
+
+  let submittedQuestionId: string | undefined;
+  await page.route("**/attempts", async (route) => {
+    submittedQuestionId = (route.request().postDataJSON() as { question_id?: string }).question_id;
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({ attempt_id: "attempt-pinned", status: "pending_evaluation", transcript: "回答內容" }),
+    });
+  });
+
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-mark-wrong-question",
+    name: "mark_answer_completed",
+    arguments: JSON.stringify({
+      session_id: "test-session-uuid",
+      question_id: "bbbb0000-0000-0000-0000-000000000002",
+      transcript: "回答內容",
+    }),
+  });
+
+  await expect.poll(() => submittedQuestionId).toBe("aaaa0000-0000-0000-0000-000000000001");
+});
+
 test("denied mic shows error overlay", async ({ page }) => {
   await denyMicrophone(page);
 
@@ -232,6 +300,93 @@ test("keeps answer controls visible after evaluation completes", async ({ page }
   await expect(page.getByRole("button", { name: /開啟麥克風|靜音/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "送出答案" })).toBeVisible();
   await expect(page.locator("button", { hasText: "← 返回題目列表" }).first()).toBeVisible();
+});
+
+test("clears evaluation timeout toast when delayed evaluation eventually completes", async ({ page }) => {
+  await page.addInitScript(() => {
+    const realSetTimeout = window.setTimeout;
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      return realSetTimeout(handler, timeout === 60000 ? 20 : timeout, ...args);
+    }) as typeof window.setTimeout;
+  });
+  await grantMicrophone(page);
+  await mockRealtimeStartup(page);
+
+  await page.route("**/questions/next**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        question_id: "00000000-0000-0000-0000-000000000001",
+        question_text: "如何優化慢查詢？",
+        category: "資料庫",
+        difficulty: "medium",
+        tags: [],
+        sm2: { ease_factor: null, interval_days: null, next_review_at: null, last_score: null },
+      }),
+    });
+  });
+  await page.route("**/attempts", async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({ attempt_id: "attempt-delayed", status: "pending_evaluation", transcript: "回答內容" }),
+    });
+  });
+  await page.route("**/attempts/attempt-delayed/result", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ attempt_id: "attempt-delayed", status: "completed", score: 76, evaluation: null }),
+    });
+  });
+  await page.route("**/attempts/attempt-delayed/summary", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        score: 76,
+        summary: "評分已完成",
+        missing_points: [],
+        next_focus: [],
+        ideal_answer: "",
+      }),
+    });
+  });
+
+  await page.goto(INTERVIEW_URL);
+  await page.getByRole("button", { name: "開始面試" }).click();
+  await page.waitForFunction(() => Boolean((window as unknown as { __rtDataChannel?: unknown }).__rtDataChannel));
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-q",
+    name: "get_next_question",
+    arguments: JSON.stringify({ mode: "single" }),
+  });
+  await expect(page.getByRole("button", { name: "送出答案" })).not.toBeDisabled({ timeout: 3000 });
+
+  await page.getByRole("button", { name: "送出答案" }).click();
+  await expect(page.getByText("評分逾時")).toBeVisible();
+
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-mark-delayed",
+    name: "mark_answer_completed",
+    arguments: JSON.stringify({
+      session_id: "test-session-uuid",
+      question_id: "00000000-0000-0000-0000-000000000001",
+      transcript: "回答內容",
+    }),
+  });
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-eval-delayed",
+    name: "get_evaluation_summary",
+    arguments: JSON.stringify({ attempt_id: "attempt-delayed" }),
+  });
+
+  await expect(page.getByText("評分已完成").first()).toBeVisible();
+  await expect(page.getByText("評分逾時")).not.toBeVisible();
 });
 
 test("realtime answer submission keeps Chinese transcript and shows feedback text", async ({ page }) => {

@@ -6,12 +6,13 @@ import EvalResultCard from "../../components/EvalResultCard";
 import ErrorOverlay from "../../components/ErrorOverlay";
 import InterviewRoom from "../../components/InterviewRoom";
 import TranscriptPanel from "../../components/TranscriptPanel";
-import { completeSession, type EvaluationResult, type NextQuestion } from "../../lib/api";
+import { completeSession, getNextQuestion, type EvaluationResult, type NextQuestion } from "../../lib/api";
 import { parseConnectionError, type ParsedError } from "../../lib/errors";
 import { RealtimeClient, type TranscriptMessage } from "../../lib/realtimeClient";
 
 type Tab = "transcript" | "eval";
 type MicStatus = "idle" | "requesting" | "granted" | "denied";
+const EVALUATION_TIMEOUT_MS = 60000;
 
 interface ToastError extends ParsedError {
   severity: "warning" | "error";
@@ -72,6 +73,25 @@ function InterviewContent() {
     if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current);
   }, []);
 
+  useEffect(() => {
+    if (!sessionId || !questionId) return;
+
+    let cancelled = false;
+    getNextQuestion(sessionId, mode, undefined, undefined, questionId)
+      .then((question) => {
+        if (!cancelled) setCurrentQuestion(question);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const parsed = parseConnectionError(err);
+        setFatalError({ ...parsed, isNetwork: err instanceof TypeError });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, mode, questionId]);
+
   function handleMuteToggle() {
     setIsMuted((v) => !v);
   }
@@ -89,6 +109,18 @@ function InterviewContent() {
     } catch {
       setMicStatus("denied");
       return;
+    }
+
+    let initialQuestion = currentQuestion;
+    if (questionId && !initialQuestion) {
+      try {
+        initialQuestion = await getNextQuestion(sessionId, mode, undefined, undefined, questionId);
+        setCurrentQuestion(initialQuestion);
+      } catch (err) {
+        const parsed = parseConnectionError(err);
+        setFatalError({ ...parsed, isNetwork: err instanceof TypeError });
+        return;
+      }
     }
 
     const client = new RealtimeClient(sessionId, mode, {
@@ -118,6 +150,7 @@ function InterviewContent() {
         }
         setIsSubmitting(false);
         setIsEvalTimedOut(false);
+        setToastError((prev) => (prev?.title === "評分逾時" ? null : prev));
         setEvalResult(result as EvaluationResult);
         setAnswerSummary(result.summary);
         setIsCompleted(true);
@@ -133,7 +166,7 @@ function InterviewContent() {
         const parsed = parseConnectionError(new Error(msg));
         setToastError({ ...parsed, severity: "warning" });
       },
-    }, { pinnedQuestionId: questionId });
+    }, { pinnedQuestionId: questionId, initialQuestion });
 
     clientRef.current = client;
     try {
@@ -172,6 +205,8 @@ function InterviewContent() {
   function handleSubmitAnswer() {
     if (!currentQuestion || isSubmitting || isEvalTimedOut) return;
     setIsSubmitting(true);
+    setIsEvalTimedOut(false);
+    setToastError((prev) => (prev?.title === "評分逾時" ? null : prev));
     submitTimeoutRef.current = setTimeout(() => {
       setIsSubmitting(false);
       setIsEvalTimedOut(true);
@@ -181,7 +216,7 @@ function InterviewContent() {
         message: "AI 未能及時完成評分，請重試",
         severity: "error",
       });
-    }, 30000);
+    }, EVALUATION_TIMEOUT_MS);
     clientRef.current?.submitAnswer();
   }
 
