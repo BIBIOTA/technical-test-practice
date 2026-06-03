@@ -823,6 +823,8 @@ async def seed() -> None:
                         "difficulty": q["difficulty"],
                         "reference_answer": q["reference_answer"],
                         "tags": q["tags"],
+                        "key_points": q["key_points"],
+                        "common_mistakes": q["common_mistakes"],
                     },
                 )
             )
