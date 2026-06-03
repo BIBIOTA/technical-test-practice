@@ -66,7 +66,14 @@ evidence-aligned 規則（保留）：
 class EvaluationProvider(ABC):
     @abstractmethod
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         pass
 
@@ -141,7 +148,14 @@ class OpenAIEvaluationProvider(EvaluationProvider):
     MODEL = "gpt-4o-mini"
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("openai", self.MODEL, transcript)
@@ -149,7 +163,14 @@ class OpenAIEvaluationProvider(EvaluationProvider):
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=settings.openai_api_key)
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         response = await client.chat.completions.create(
             model=self.MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -189,7 +210,14 @@ class ClaudeEvaluationProvider(EvaluationProvider):
     }
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("claude", self.MODEL, transcript)
@@ -197,7 +225,14 @@ class ClaudeEvaluationProvider(EvaluationProvider):
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         message = await client.messages.create(
             model=self.MODEL,
             max_tokens=2048,
@@ -220,7 +255,14 @@ class GeminiEvaluationProvider(EvaluationProvider):
     MODEL = "gemini-2.5-flash"
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("gemini", self.MODEL, transcript)
@@ -236,7 +278,14 @@ class GeminiEvaluationProvider(EvaluationProvider):
                 response_mime_type="application/json"
             ),
         )
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         response = await asyncio.to_thread(model.generate_content, prompt)
         raw = response.text if response.text else "{}"
         return self._parse_result(raw, "gemini", self.MODEL)
