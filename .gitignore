@@ -12,3 +12,4 @@ playwright-report/
 *.egg-info/
 dist/
 build/
+backend/scripts/*.draft
