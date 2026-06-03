@@ -98,6 +98,9 @@ async def _run_evaluation(attempt_id: uuid.UUID) -> None:
                 question=question.text,
                 reference_answer=question.reference_answer,
                 transcript=transcript,
+                difficulty=question.difficulty,
+                key_points=question.key_points,
+                common_mistakes=question.common_mistakes,
             )
 
             attempt.status = "completed"
