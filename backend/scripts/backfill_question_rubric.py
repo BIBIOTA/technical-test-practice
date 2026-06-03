@@ -1,12 +1,12 @@
 """
 Backfill key_points + common_mistakes for existing questions.
 
-Reads QUESTIONS list from seed_questions.py, calls Claude Haiku for each
+Reads QUESTIONS list from seed_questions.py, calls OpenAI gpt-4o-mini for each
 entry whose key_points is empty, and writes a complete new file
 seed_questions.py.draft for human review via `git diff --no-index`.
 
 Usage (run locally, not in container):
-    ANTHROPIC_API_KEY=... python backend/scripts/backfill_question_rubric.py
+    OPENAI_API_KEY=... python backend/scripts/backfill_question_rubric.py
 
 Output:
     backend/scripts/seed_questions.py.draft
@@ -22,35 +22,38 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import anthropic  # noqa: E402
+from openai import AsyncOpenAI  # noqa: E402
 
 from scripts.seed_questions import QUESTIONS  # type: ignore  # noqa: E402
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "gpt-4o-mini"
 
 EXTRACT_TOOL = {
-    "name": "submit_rubric",
-    "description": "Submit structured evaluation rubric for an interview question.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "key_points": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "point": {"type": "string"},
-                        "tier": {"type": "string", "enum": ["core", "bonus"]},
+    "type": "function",
+    "function": {
+        "name": "submit_rubric",
+        "description": "Submit structured evaluation rubric for an interview question.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "key_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "point": {"type": "string"},
+                            "tier": {"type": "string", "enum": ["core", "bonus"]},
+                        },
+                        "required": ["point", "tier"],
                     },
-                    "required": ["point", "tier"],
+                },
+                "common_mistakes": {
+                    "type": "array",
+                    "items": {"type": "string"},
                 },
             },
-            "common_mistakes": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
+            "required": ["key_points", "common_mistakes"],
         },
-        "required": ["key_points", "common_mistakes"],
     },
 }
 
@@ -70,12 +73,9 @@ EXTRACT_PROMPT = """你正在為一份面試題庫補上結構化評分要點。
 每項 1-2 句、具體、可作為打勾陳述。不要重複 reference_answer 整段。"""
 
 
-async def extract_rubric(client: anthropic.AsyncAnthropic, question: dict) -> dict:
-    message = await client.messages.create(
+async def extract_rubric(client: AsyncOpenAI, question: dict) -> dict:
+    response = await client.chat.completions.create(
         model=MODEL,
-        max_tokens=2048,
-        tools=[EXTRACT_TOOL],
-        tool_choice={"type": "tool", "name": "submit_rubric"},
         messages=[
             {
                 "role": "user",
@@ -86,11 +86,13 @@ async def extract_rubric(client: anthropic.AsyncAnthropic, question: dict) -> di
                 ),
             }
         ],
+        tools=[EXTRACT_TOOL],
+        tool_choice={"type": "function", "function": {"name": "submit_rubric"}},
     )
-    for block in message.content:
-        if hasattr(block, "input"):
-            return dict(block.input)
-    raise RuntimeError("Claude returned no tool_use block")
+    tool_calls = response.choices[0].message.tool_calls
+    if tool_calls:
+        return json.loads(tool_calls[0].function.arguments)
+    raise RuntimeError("OpenAI returned no tool_call")
 
 
 def format_key_points(key_points: list[dict]) -> str:
@@ -114,12 +116,12 @@ def format_common_mistakes(mistakes: list[str]) -> str:
 
 
 async def main() -> None:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY 未設定", file=sys.stderr)
+        print("ERROR: OPENAI_API_KEY 未設定", file=sys.stderr)
         sys.exit(1)
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
 
     enriched: list[dict] = []
     for idx, q in enumerate(QUESTIONS, 1):
