@@ -561,6 +561,45 @@ Redis 分布式鎖適合在多服務架構中提供互斥保護，但需注意�
     },
     {
         "id": uuid.uuid4(),
+        "notion_id": "36c7c329-f14b-8021-b924-e1f2a3b4c5d6",
+        "text": "什麼是 Message Queue（訊息佇列）？它如何解決高併發場景下的效能瓶頸？有哪些需要注意的挑戰？",
+        "category": "backend",
+        "difficulty": "hard",
+        "tags": ["message-queue", "concurrency", "system-design", "backend"],
+        "reference_answer": """## 核心概念
+
+Message Queue（MQ，如 RabbitMQ、Kafka）是一個傳遞訊息的中介軟體，基於 **Producer-Consumer Model** 運作：
+
+| 角色 | 職責 |
+|------|------|
+| Producer（生產者） | 接收 Request，轉換為訊息寫入 Queue |
+| Broker（訊息代理） | 暫存、管理、確保訊息排序與安全 |
+| Consumer（消費者） | 從 Queue 取出訊息，執行商業邏輯（扣庫存、寫 DB）|
+
+## 如何解決高併發問題
+
+### 1. 削峰填谷（Traffic Shaping）
+瞬間湧入的大量請求不直接打資料庫，而是快速寫入 MQ 並立即回覆「請求已受理、排隊中」。Consumer 依自身能力平穩消化，資料庫與 Redis 不再面臨瞬間擊潰的風險。
+
+### 2. 並行轉串行（Parallel → Serial）
+針對同一資源的請求放進同一 Queue，由單一 Consumer 依序處理。**Race Condition 不存在於串行流程中**，也大幅減少了對分布式鎖的依賴。
+
+## 需要留意的挑戰
+
+- **訊息遺失（Message Loss）：** 設定 Persistence（持久化），將訊息寫入 Disk，確保服務重啟後仍能處理。
+- **重複消費（Duplicate Consumption）：** Consumer 邏輯必須具備「冪等性（Idempotency）」，利用 Unique Key 防止重複寫入。
+- **最終一致性與 UX：** 非同步處理導致使用者無法立即知道結果，前端需搭配 **Polling 或 WebSocket** 查詢狀態。
+
+## 架構演進建議
+
+| 流量規模 | 建議策略 |
+|---------|---------|
+| 小流量、架構單純 | 資料庫 Lock / 欄位條件 |
+| 微服務、中等流量 | Redis Distributed Lock |
+| 極端高併發、秒殺場景 | Message Queue（同步改非同步、並行改串行）|""",
+    },
+    {
+        "id": uuid.uuid4(),
         "notion_id": "3687c329-f14b-8022-96bb-f54da7d43283",
         "text": "什麼是黑箱測試（Black-box Testing）與白箱測試（White-box Testing）？請比較兩者差異並舉例。",
         "category": "testing",
