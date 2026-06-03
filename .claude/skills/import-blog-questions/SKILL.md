@@ -77,7 +77,10 @@ Brief definition (1–3 sentences)
 
 ### 5. Run seed script
 
+The backend image has no volume mount — copy the updated file into the running container first:
+
 ```bash
+docker cp backend/scripts/seed_questions.py technical-test-practice-backend-1:/app/scripts/seed_questions.py
 docker-compose exec backend python scripts/seed_questions.py
 # Expected: Done: N questions upserted
 ```
@@ -86,6 +89,8 @@ If containers are not running:
 ```bash
 docker-compose up -d --build
 until curl -sf http://localhost:8001/health > /dev/null; do sleep 2; done
+docker cp backend/scripts/seed_questions.py technical-test-practice-backend-1:/app/scripts/seed_questions.py
+docker-compose exec backend python scripts/seed_questions.py
 ```
 
 ### 6. Verify via API
