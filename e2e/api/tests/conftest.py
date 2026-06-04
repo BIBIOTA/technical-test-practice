@@ -30,11 +30,13 @@ def insert_question(
     difficulty: str = "easy",
     reference_answer: str = "A strong answer covers the main concepts clearly.",
     tags: list[str] | None = None,
+    transcription_keywords: list[str] | None = None,
 ) -> str:
     q_id = str(uuid.uuid4())
     db_execute(
-        "INSERT INTO questions (id, text, category, difficulty, reference_answer, tags)"
-        " VALUES (%s, %s, %s, %s, %s, %s)",
+        "INSERT INTO questions "
+        "(id, text, category, difficulty, reference_answer, tags, transcription_keywords)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (
             q_id,
             text or f"Test question {q_id}",
@@ -42,6 +44,7 @@ def insert_question(
             difficulty,
             reference_answer,
             tags or ["test"],
+            transcription_keywords or [],
         ),
     )
     return q_id
@@ -137,6 +140,17 @@ def question_id():
         reference_answer="REST stands for Representational State Transfer. It uses HTTP verbs.",
         tags=["api", "http"],
     )
+
+
+@pytest.fixture
+def question_with_transcription_keywords():
+    keywords = ["TDD", "SQLAlchemy", "Alembic"]
+    q_id = insert_question(
+        text="How do you keep database migrations tested?",
+        reference_answer="Use migrations with focused tests and deterministic fixtures.",
+        transcription_keywords=keywords,
+    )
+    return q_id, keywords
 
 
 @pytest.fixture
