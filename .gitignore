@@ -13,3 +13,4 @@ playwright-report/
 dist/
 build/
 backend/scripts/*.draft
+.worktrees/
