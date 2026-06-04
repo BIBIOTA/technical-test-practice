@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.deps import get_db, verify_token
 from app.models.interview_session import InterviewSession
+from app.models.question import Question
 from app.models.realtime_session import RealtimeSession
 
 router = APIRouter(prefix="/realtime", tags=["realtime"])
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/realtime", tags=["realtime"])
 
 class ClientSecretRequest(BaseModel):
     session_id: uuid.UUID
+    pinned_question_id: uuid.UUID | None = None
 
 
 @router.post("/client-secret")
@@ -31,13 +34,21 @@ async def create_client_secret(
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    from openai import AsyncOpenAI
+    keywords: list[str] = []
+    if body.pinned_question_id is not None:
+        q_result = await db.execute(
+            select(Question).where(Question.id == body.pinned_question_id)
+        )
+        question = q_result.scalar_one_or_none()
+        if question is None:
+            raise HTTPException(status_code=404, detail="Question not found")
+        keywords = list(question.transcription_keywords or [])
 
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     try:
         response = await client.realtime.client_secrets.create(
-            session=_build_realtime_session_config(session.mode, [])
+            session=_build_realtime_session_config(session.mode, keywords)
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
