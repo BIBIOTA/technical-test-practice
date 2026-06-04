@@ -55,11 +55,11 @@
   - Independence: serial
 
 ## 8. Verification
-- [ ] 8.1 Run end-to-end verification per CLAUDE.md
+- [x] 8.1 Run end-to-end verification per CLAUDE.md
   - Acceptance: WHEN `make test-env-up` succeeds AND `make test-api` passes AND `cd frontend && npm run lint && npm run build` passes AND `make test-ui` passes AND `make test-env-down` cleans up THEN the change is ready to archive
   - Depends on: 3.1, 7.1
   - Independence: serial
 
 ## Optional artifacts
-- [ ] PlantUML diagrams (spec-driven-dev:writing-uml)
-- [ ] Figma designs (spec-driven-dev:writing-figma)
+- [ ] PlantUML diagrams (spec-driven-dev:writing-uml) — deferred: 本變更僅有單一同步請求，無複雜流程/狀態機，writing-plans 階段確認不需要
+- [ ] Figma designs (spec-driven-dev:writing-figma) — deferred: 沿用既有 `select/page.tsx` 的卡片與 token 慣例，writing-plans 階段確認不需要
