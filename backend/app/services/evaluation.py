@@ -147,6 +147,32 @@ class EvaluationProvider(ABC):
 class OpenAIEvaluationProvider(EvaluationProvider):
     MODEL = "gpt-4o-mini"
 
+    _RESPONSE_FORMAT: dict = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "evaluation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "score": {"type": "integer"},
+                    "summary": {"type": "string"},
+                    "missing_points": {"type": "array", "items": {"type": "string"}},
+                    "next_focus": {"type": "array", "items": {"type": "string"}},
+                    "ideal_answer": {"type": "string"},
+                },
+                "required": [
+                    "score",
+                    "summary",
+                    "missing_points",
+                    "next_focus",
+                    "ideal_answer",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    }
+
     async def evaluate(
         self,
         question: str,
@@ -174,7 +200,7 @@ class OpenAIEvaluationProvider(EvaluationProvider):
         response = await client.chat.completions.create(
             model=self.MODEL,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=self._RESPONSE_FORMAT,
         )
         raw = response.choices[0].message.content or "{}"
         result = self._parse_result(raw, "openai", self.MODEL)
@@ -184,7 +210,7 @@ class OpenAIEvaluationProvider(EvaluationProvider):
         localized = await client.chat.completions.create(
             model=self.MODEL,
             messages=[{"role": "user", "content": self._build_localization_prompt(result)}],
-            response_format={"type": "json_object"},
+            response_format=self._RESPONSE_FORMAT,
         )
         localized_raw = localized.choices[0].message.content or "{}"
         return self._parse_result(localized_raw, "openai", self.MODEL)
