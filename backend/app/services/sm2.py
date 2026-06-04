@@ -168,3 +168,35 @@ async def list_questions(
         }
         for row in rows
     ]
+
+
+async def get_question_detail(db: AsyncSession, question_id: uuid.UUID) -> dict | None:
+    query = text("""
+        SELECT
+            q.id,
+            q.text,
+            q.category,
+            q.difficulty,
+            q.tags,
+            q.reference_answer,
+            q.key_points,
+            q.common_mistakes
+        FROM questions q
+        WHERE q.id = :question_id
+    """)
+
+    result = await db.execute(query, {"question_id": str(question_id)})
+    row = result.mappings().first()
+    if row is None:
+        return None
+
+    return {
+        "question_id": str(row["id"]),
+        "question_text": row["text"],
+        "category": row["category"],
+        "difficulty": row["difficulty"],
+        "tags": row["tags"] or [],
+        "reference_answer": row["reference_answer"],
+        "key_points": row["key_points"] or [],
+        "common_mistakes": row["common_mistakes"] or [],
+    }

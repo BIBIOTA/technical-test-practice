@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_db, verify_token
+from app.services.sm2 import get_question_detail as sm2_get_question_detail
 from app.services.sm2 import list_questions as sm2_list_questions
 from app.services.sm2 import select_next_question
 
@@ -54,3 +55,15 @@ async def get_next_question(
             "last_score": question["last_score"],
         },
     }
+
+
+@router.get("/{question_id}")
+async def get_question(
+    question_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(verify_token),
+) -> dict:
+    detail = await sm2_get_question_detail(db, question_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return detail
