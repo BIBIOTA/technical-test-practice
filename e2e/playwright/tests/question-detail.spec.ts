@@ -9,7 +9,7 @@ const FULL_DETAIL = {
   question_text: "請說明 JWT Token 的結構與運作流程，包含雙 Token 機制的優缺點。",
   category: "auth",
   difficulty: "medium",
-  tags: ["auth", "jwt"],
+  tags: ["jwt"],
   reference_answer:
     "JWT 由 header、payload、signature 三段組成，使用 base64url 編碼後以點號連接。雙 Token 機制使用短效 access token 與長效 refresh token，可降低 token 外洩風險。",
   key_points: [
@@ -127,7 +127,7 @@ test("Question not found shows empty state", async ({ page }) => {
   await page.goto(DETAIL_URL);
 
   await expect(page.getByText("找不到這題，可能已被移除。")).toBeVisible();
-  await expect(page.getByRole("button", { name: "返回選題" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "返回選題", exact: true })).toBeVisible();
 });
 
 test("Other fetch errors show generic retry", async ({ page }) => {
@@ -197,7 +197,7 @@ test("Return preserves provider", async ({ page }) => {
 
   await page.goto(DETAIL_URL);
 
-  await page.getByRole("button", { name: "返回選題" }).click();
+  await page.getByRole("button", { name: "返回選題", exact: true }).click();
 
   await expect(page).toHaveURL(new RegExp(`/questions/select\\?provider=${PROVIDER}`));
 });
