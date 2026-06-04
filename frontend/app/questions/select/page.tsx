@@ -210,14 +210,28 @@ function QuestionSelectContent() {
                     {q.question_text.length > 60 ? q.question_text.slice(0, 60) + "…" : q.question_text}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleSelect(q)}
-                  disabled={startingId !== null}
-                  className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 cursor-pointer"
-                  style={{ background: "var(--color-primary)" }}
-                >
-                  {isStarting ? "建立中..." : "選擇練習"}
-                </button>
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  <button
+                    onClick={() => router.push(`/questions/${q.question_id}?provider=${provider}`)}
+                    disabled={startingId !== null}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border disabled:opacity-50 cursor-pointer"
+                    style={{
+                      borderColor: "var(--color-border)",
+                      color: "var(--color-text-secondary)",
+                      background: "var(--color-surface-elevated)",
+                    }}
+                  >
+                    查看內容
+                  </button>
+                  <button
+                    onClick={() => handleSelect(q)}
+                    disabled={startingId !== null}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 cursor-pointer"
+                    style={{ background: "var(--color-primary)" }}
+                  >
+                    {isStarting ? "建立中..." : "選擇練習"}
+                  </button>
+                </div>
               </div>
             );
           })}

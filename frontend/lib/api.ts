@@ -89,6 +89,27 @@ export function listQuestions(category?: string, difficulty?: string): Promise<Q
   return apiFetch(`/questions${qs ? `?${qs}` : ""}`);
 }
 
+export interface QuestionDetailKeyPoint {
+  point?: string;
+  weight?: number;
+  [key: string]: unknown;
+}
+
+export interface QuestionDetail {
+  question_id: string;
+  question_text: string;
+  category: string;
+  difficulty: string;
+  tags: string[];
+  reference_answer: string;
+  key_points: QuestionDetailKeyPoint[];
+  common_mistakes: string[];
+}
+
+export function getQuestion(id: string): Promise<QuestionDetail> {
+  return apiFetch(`/questions/${id}`);
+}
+
 export function getNextQuestion(
   sessionId: string,
   mode: string,
