@@ -37,7 +37,7 @@ async def create_client_secret(
 
     try:
         response = await client.realtime.client_secrets.create(
-            session=_build_realtime_session_config(session.mode)
+            session=_build_realtime_session_config(session.mode, [])
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
@@ -145,7 +145,21 @@ def _get_tools() -> list[dict]:
     ]
 
 
-def _build_realtime_session_config(mode: str) -> dict:
+TRANSCRIPTION_BASE_PROMPT = (
+    "這是一場後端工程師中文技術面試，應試者使用台灣繁體中文回答。"
+    "請完整保留英文術語的原文拼寫，不要翻譯成中文、不要替換成其他相近詞、"
+    "不要轉成拼音或假名。聽不清楚時保留原狀，不要猜測。"
+)
+
+
+def _build_transcription_prompt(keywords: list[str]) -> str:
+    if not keywords:
+        return TRANSCRIPTION_BASE_PROMPT
+    terms = ", ".join(keywords)
+    return f"{TRANSCRIPTION_BASE_PROMPT} 本題可能會出現的英文術語：{terms}。"
+
+
+def _build_realtime_session_config(mode: str, keywords: list[str]) -> dict:
     return {
         "type": "realtime",
         "model": "gpt-realtime-2025-08-28",
@@ -154,7 +168,11 @@ def _build_realtime_session_config(mode: str) -> dict:
         "tool_choice": "auto",
         "audio": {
             "input": {
-                "transcription": {"model": "gpt-4o-transcribe", "language": "zh"},
+                "transcription": {
+                    "model": "gpt-4o-transcribe",
+                    "language": "zh",
+                    "prompt": _build_transcription_prompt(keywords),
+                },
             },
             "output": {"voice": "cedar"},
         },
