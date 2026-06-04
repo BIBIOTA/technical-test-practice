@@ -280,6 +280,24 @@ class ClaudeEvaluationProvider(EvaluationProvider):
 class GeminiEvaluationProvider(EvaluationProvider):
     MODEL = "gemini-2.5-flash"
 
+    _RESPONSE_SCHEMA: dict = {
+        "type": "object",
+        "properties": {
+            "score": {"type": "integer"},
+            "summary": {"type": "string"},
+            "missing_points": {"type": "array", "items": {"type": "string"}},
+            "next_focus": {"type": "array", "items": {"type": "string"}},
+            "ideal_answer": {"type": "string"},
+        },
+        "required": [
+            "score",
+            "summary",
+            "missing_points",
+            "next_focus",
+            "ideal_answer",
+        ],
+    }
+
     async def evaluate(
         self,
         question: str,
@@ -301,7 +319,8 @@ class GeminiEvaluationProvider(EvaluationProvider):
         model = genai.GenerativeModel(
             self.MODEL,
             generation_config=genai.GenerationConfig(
-                response_mime_type="application/json"
+                response_mime_type="application/json",
+                response_schema=self._RESPONSE_SCHEMA,
             ),
         )
         prompt = self._build_prompt(
