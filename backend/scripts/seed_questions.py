@@ -28,6 +28,23 @@ QUESTIONS = [
         "category": "llm-engineering",
         "difficulty": "hard",
         "tags": ["llm", "backend", "frontend", "async"],
+        "key_points": [
+            {"point": "後端控制 API Key 以防止暴露，確保安全性。", "tier": "core"},
+            {"point": "Prompt 應分層，降低注入攻擊風險。", "tier": "core"},
+            {"point": "LLM 的輸出格式必須控制，確保資料結構正確。", "tier": "core"},
+            {"point": "必須實作批次任務與非同步處理，以應對 LLM 延遲不穩定問題。", "tier": "core"},
+            {"point": "監控每次 LLM 呼叫的關鍵指標，確保後續可觀測性。", "tier": "core"},
+            {"point": "使用 Redis 進行跨 worker 的流量控制，以避免超過請求限制。", "tier": "bonus"},
+            {"point": "可選擇合適的前端串接方式，根據實際應用情境進行設計。", "tier": "bonus"},
+            {"point": "建立完整的錯誤處理機制與回退方案，以提高系統穩定性。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未將 API Key 隱藏，直接暴露在前端代碼中。",
+            "忽略對 LLM 輸出格式的驗證，導致系統錯誤。",
+            "沒有考慮到串接過程中的延遲問題，造成前端使用者體驗不佳。",
+            "未針對高頻請求設置流量控制，導致服務崩潰。",
+            "對錯誤情況缺乏合適的回退處理機制。",
+        ],
         "reference_answer": """## 一、後端 LLM 串接設計
 
 LLM 應被視為「不穩定、昂貴、有限流量、輸出不可完全信任」的外部服務。
@@ -92,6 +109,21 @@ LLM 串接場景優先選 SSE，WebSocket 除非真的需要雙向高頻互動�
         "category": "testing",
         "difficulty": "easy",
         "tags": ["testing", "bdd", "agile"],
+        "key_points": [
+            {"point": "BDD 是 TDD 的延伸，使用自然語言描述系統行為。", "tier": "core"},
+            {"point": "使用 Gherkin 語法（Given / When / Then）來定義測試場景。", "tier": "core"},
+            {"point": "BDD 涉及開發者、測試人員及 PM 的共同理解。", "tier": "core"},
+            {"point": "強調業務行為驅動整個功能實現，而非僅限於單元測試。", "tier": "core"},
+            {"point": "減少需求理解落差，使三方共同定義驗收條件。", "tier": "bonus"},
+            {"point": "BDD 測試可以作為文件，確保 spec 與實作同步。", "tier": "bonus"},
+            {"point": "提及常見工具如 Cucumber、Behave 等。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未能清晰區分 BDD 與 TDD 的根本差異，可能導致誤解其目的。",
+            "解釋 Gherkin 語法時未提供具體範例或示意，讓人難以理解。",
+            "對於 BDD 的優點描述不夠具體，無法說明其實際應用上的好處。",
+            "忽略提及多方協作的重要性，僅從開發者的角度出發。",
+        ],
         "reference_answer": """BDD（Behavior-Driven Development，行為驅動開發）是 TDD 的延伸，核心差異在於它用接近自然語言的方式（Given / When / Then）描述系統行為，讓開發者、測試人員、PM 都能共同讀懂驗收條件，確保產出符合商業需求。
 
 ## Gherkin 語法範例
@@ -132,6 +164,21 @@ Feature: 使用者結帳
         "category": "auth",
         "difficulty": "medium",
         "tags": ["auth", "jwt", "security"],
+        "key_points": [
+            {"point": "JWT Token 是一種無狀態認證，後端不存 Session，而是透過 Token 進行身份驗證。", "tier": "core"},
+            {"point": "JWT 的結構包含 Header、Payload 和 Signature，三者以 '.' 隔開並轉換為 Base64Url 編碼。", "tier": "core"},
+            {"point": "Payload 中存放 Claims，如 user_id、role 和 exp，這些資訊用於識別用戶及過期控制。", "tier": "core"},
+            {"point": "Signature 為保護資料完整性，透過後端秘密密鑰與演算法計算。", "tier": "core"},
+            {"point": "JWT Token 存放有風險，應避免存放敏感資料如密碼，並需防範 XSS 和 CSRF 攻擊。", "tier": "bonus"},
+            {"point": "Access Token 和 Refresh Token 的設計用意在於提升安全性，短期與長期的可用性取捨。", "tier": "bonus"},
+            {"point": "在使用 JWT 時，注意 Token 發行後的主動銷毀難題，設計時需考量過期機制。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未能正確解釋 JWT 的三個部分或結構，尤其是各自的用途。",
+            "沒有提到 JWT 使用過程中可能的安全風險，如 XSS 或 CSRF，而是一味強調優點。",
+            "誤解 JWT 的存在目的，認為它可以取代傳統的 Session 管理，卻未考慮其限制。",
+            "在 Payload 中建議存放敏感資訊，未強調安全性及數據保護的重要性。",
+        ],
         "reference_answer": """JWT token 是一種「無狀態（Stateless）認證」。
 後端不需要在資料庫或記憶體中保存使用者的登入 Session 狀態，而是將使用者的身分與權限資訊打包成 Claims，透過簽名保護資料完整性後，交由前端保管。
 
@@ -199,6 +246,20 @@ Session 可隨時被銷毀，但 JWT 的設計原則是在過期前持續有效�
         "category": "algorithms",
         "difficulty": "medium",
         "tags": ["algorithms", "time-complexity", "big-o", "cs-fundamentals"],
+        "key_points": [
+            {"point": "時間複雜度是用來描述演算法執行時間隨輸入量變化的函式。", "tier": "core"},
+            {"point": "Big O 符號用於表示演算法的時間複雜度。", "tier": "core"},
+            {"point": "O(1) 是常數時間，執行時間不受資料量影響。", "tier": "core"},
+            {"point": "O(n) 是線性時間，執行時間隨資料量等比例增加。", "tier": "core"},
+            {"point": "O(n^2) 是平方時間，資料量增大導致執行時間急劇上升，需謹慎使用。", "tier": "bonus"},
+            {"point": "O(log n) 是對數時間，適合於快速搜尋資料的演算法，如二分搜尋法。", "tier": "bonus"},
+            {"point": "強調利用 Hash Table 降低時間複雜度的策略。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "忽略列舉所有核心的時間複雜度級別，如 O(log n)、O(n log n)等，這會使面試者的回答不完整。",
+            "對時間複雜度的定義模糊，不清楚其與演算法效能的關聯性。",
+            "未能舉出具體的情境或範例來支持其所述的複雜度，降低了回答的深度。",
+        ],
         "reference_answer": """演算法的時間複雜度是用來定性描述演算法執行時間隨輸入量增長的函式。在工程上通常用 **Big O 符號** 表示。
 
 ## 常見複雜度級別（從最快到最慢）
@@ -291,6 +352,21 @@ def get_all_permutations(items):
         "category": "algorithms",
         "difficulty": "medium",
         "tags": ["algorithms", "space-complexity", "big-o", "cs-fundamentals"],
+        "key_points": [
+            {"point": "空間複雜度是描述演算法所需記憶體資源的指標，隨輸入資料量 n 增長而增加。", "tier": "core"},
+            {"point": "空間複雜度包含輸入空間與輔助空間，輔助空間是額外配置的記憶體。", "tier": "core"},
+            {"point": "兩者皆使用 Big O 符號描述資源消耗的趨勢，但針對不同的資源進行分析。", "tier": "core"},
+            {"point": "時間複雜度過高會導致系統變慢，空間複雜度過高則可能導致 OOM 錯誤。", "tier": "core"},
+            {"point": "常見的空間複雜度有 O(1)、O(log n)、O(n)、O(n^2)，及其相應的實作示例。", "tier": "bonus"},
+            {"point": "實務中需要在時間與空間之間取得平衡，根據具體需求做出取捨。", "tier": "bonus"},
+            {"point": "良好的系統設計需考量資料量、併發量及硬體限制，而非單純追求最低時間或空間複雜度。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未能清楚區分空間複雜度和時間複雜度的定義，可能會混淆二者的概念。",
+            "在舉例時未能清楚表達常見空間複雜度的具體實作，導致解釋不夠深入。",
+            "未提及輔助空間的重要性，可能會忽略編寫演算法時的主要考量。",
+            "在選擇時間和空間的取捨時，未能提供足夠的實務案例，讓評估更加模糊。",
+        ],
         "reference_answer": """空間複雜度是用來描述演算法在執行過程中，隨著輸入資料量 n 增長而需要多少記憶體資源的指標。工程與面試情境中常說的空間複雜度，通常指的是 **輔助空間（Auxiliary Space）**，也就是不包含輸入資料本身、演算法額外配置的記憶體。
 
 ## 空間複雜度的組成
@@ -390,6 +466,21 @@ def create_matrix(n):
         "category": "testing",
         "difficulty": "medium",
         "tags": ["testing", "qa", "metrics", "code-coverage"],
+        "key_points": [
+            {"point": "測試覆蓋率包括 Line Coverage、Branch Coverage 和 Mutation Testing，必須精確理解三者的重要性。", "tier": "core"},
+            {"point": "了解缺陷逃逸率的計算方式及其意義，能直接反映測試品質。", "tier": "core"},
+            {"point": "Issue Severity 的分級方法能幫助更好理解缺陷的影響，應能列舉各優先級的特徵。", "tier": "core"},
+            {"point": "單純依賴 Code Coverage 指標來評估測試品質是不夠的，需要結合其他指標進行綜合評估。", "tier": "core"},
+            {"point": "對於 AAR 的重視程度及其如何影響後續改進是衡量產品健康度的一個要素。", "tier": "bonus"},
+            {"point": "能舉例說明不同 Severity 中的實際案例，以增強論述的說服力。", "tier": "bonus"},
+            {"point": "引入測試策略的取捨，如何在測試成本與測試覆蓋率之間平衡。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "不知道測試覆蓋率的具體指標細節，例如混淆 Line Coverage 和 Branch Coverage。",
+            "對缺陷逃逸率的計算式理解不清，無法正確說明其意義。",
+            "不清楚各種嚴重程度的真正影響，僅僅依賴數量。",
+            "淡化測試指標之間的關聯性，認為只要覆蓋率高就能保障測試品質。",
+        ],
         "reference_answer": """評估測試品質不能只靠覆蓋率，通常會結合以下三個層次的指標：
 
 ## 測試覆蓋率（Test Coverage）
@@ -435,6 +526,21 @@ P0 發生後通常需進行 **AAR（After-Action Report）**，識別問題、�
         "category": "database",
         "difficulty": "hard",
         "tags": ["database", "race-condition", "concurrency", "locking"],
+        "key_points": [
+            {"point": "原子更新直接使用 SQL 語句，避免拆分操作以減少競態條件的風險。", "tier": "core"},
+            {"point": "悲觀鎖確保在事務完成前，其他請求無法修改同一筆資料，但可能造成效能問題。", "tier": "core"},
+            {"point": "樂觀鎖透過版本控制避免超賣，在高讀取的情況下表現優異，但高衝突下可能導致多次失敗。", "tier": "core"},
+            {"point": "適用場景的選擇對於解決競態條件至關重要，例如金流相關通常使用悲觀鎖。", "tier": "core"},
+            {"point": "不同資料庫在欄位設計方面提供的保護措施是避免競態條件中的最後防線。", "tier": "bonus"},
+            {"point": "在選擇鎖定策略時，需考慮業務邏輯的複雜性和對效能的需求。", "tier": "bonus"},
+            {"point": "對於悲觀鎖，應該評估其對連線池的影響，以避免系統過載。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未考慮業務邏輯複雜性而隨意選擇鎖定策略，導致性能瓶頸。",
+            "對於競爭激烈的場景，過度依賴樂觀鎖而未實施重試機制，造成應用層崩潰。",
+            "未認識到資料庫欄位設計的重要性，導致資料不一致的問題發生。",
+            "對於悲觀鎖的理解不足，導致鎖定過長時間造成效能下降。",
+        ],
         "reference_answer": """在高併發場景下（如搶購庫存），同時有兩個請求讀取並更新同一筆資料，可能導致庫存查詢不一致甚至超賣（Race Condition）。資料庫層級有三種主要的解決策略：
 
 ## 1. Atomic Update（原子更新）
@@ -505,6 +611,21 @@ WHERE id = 1 AND version = 5 AND stock >= 1;
         "category": "backend",
         "difficulty": "hard",
         "tags": ["redis", "distributed-lock", "race-condition", "concurrency"],
+        "key_points": [
+            {"point": "使用 Redis 實作分布式鎖的核心原因是支持微服務架構下的互斥需求。", "tier": "core"},
+            {"point": "取得鎖的過程中必須確保寫入鎖及設定過期時間為原子性行為。", "tier": "core"},
+            {"point": "防止鎖的永久存在，必須設定鎖的 TTL。", "tier": "core"},
+            {"point": "釋放鎖需使用 Lua Script 確保比對鎖擁有者的 unique_id，避免誤刪。", "tier": "core"},
+            {"point": "執行長任務時，應使用 Watchdog 續期鎖以防鎖過期。", "tier": "bonus"},
+            {"point": "使用 Fencing Token 可以防止因鎖過期導致的資料錯誤寫入。", "tier": "bonus"},
+            {"point": "理解 Race Condition 問題的重要性，並應能描述相關的解決方案。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "應試者可能忽略過程的原子性，導致鎖的競爭問題。",
+            "有可能不了解 TTL 的重要性，導致鎖的濫用或死鎖。",
+            "在釋放鎖的過程中，直接使用 DEL 指令而忽略 Lua Script 的使用。",
+            "無法正確解釋長時間任務面臨的風險以及應採取的對策。",
+        ],
         "reference_answer": """在微服務架構下，應用程式部署在多台伺服器上，單純的資料庫鎖已無法滿足跨服務的互斥需求。Redis 憑藉極高的讀寫效能與單執行緒特性，成為實作分布式鎖的首選。
 
 ## 核心三步驟
@@ -566,6 +687,21 @@ Redis 分布式鎖適合在多服務架構中提供互斥保護，但需注意�
         "category": "backend",
         "difficulty": "hard",
         "tags": ["message-queue", "concurrency", "system-design", "backend"],
+        "key_points": [
+            {"point": "Message Queue 是一種基於生產者-消費者模型的訊息傳遞中介軟體。", "tier": "core"},
+            {"point": "削峰填谷即是將高流量請求快速寫入 MQ，防止資料庫瞬間過載。", "tier": "core"},
+            {"point": "並行轉串行處理能有效防止競爭條件出現，減少對分布式鎖的需求。", "tier": "core"},
+            {"point": "需注意訊息遺失的風險，應該實現訊息的持久化。", "tier": "core"},
+            {"point": "消費者需具備冪等性，以避免重複消費造成的數據錯誤。", "tier": "bonus"},
+            {"point": "需要考慮非同步處理對用戶體驗的影響，可能需搭配查詢狀態的機制。", "tier": "bonus"},
+            {"point": "高併發情境下，應根據流量規模選擇適合的鎖策略。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "未能正確解釋訊息佇列的角色和責任，造成概念不清。",
+            "忽略了高併發情景中消費者需具備冪等性的必要性。",
+            "未考慮資料庫的持久化設定，導致訊息可能遺失。",
+            "未提到非同步處理對用戶體驗的潛在影響。",
+        ],
         "reference_answer": """## 核心概念
 
 Message Queue（MQ，如 RabbitMQ、Kafka）是一個傳遞訊息的中介軟體，基於 **Producer-Consumer Model** 運作：
@@ -605,6 +741,22 @@ Message Queue（MQ，如 RabbitMQ、Kafka）是一個傳遞訊息的中介軟體
         "category": "testing",
         "difficulty": "easy",
         "tags": ["testing", "qa", "white-box", "black-box"],
+        "key_points": [
+            {"point": "黑箱測試是指測試人員不需瞭解程式碼內部實作，只驗證輸入和預期輸出的關係。", "tier": "core"},
+            {"point": "白箱測試需要對程式碼架構和邏輯有充分理解，針對每個條件進行測試。", "tier": "core"},
+            {"point": "黑箱測試的執行者主要是QA工程師和一般使用者。", "tier": "core"},
+            {"point": "白箱測試主要由開發工程師進行，重視程式碼的邏輯及安全性。", "tier": "core"},
+            {"point": "黑箱測試適合發現需求不符和UI相關的錯誤。", "tier": "bonus"},
+            {"point": "白箱測試適合追蹤邏輯錯誤及安全漏洞。", "tier": "bonus"},
+            {"point": "常見的黑箱測試方法包括功能測試與壓力測試。", "tier": "bonus"},
+            {"point": "常見的白箱測試工具有ESLint和SonarQube等。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "應試者可能無法正確區分黑箱測試與白箱測試的概念，導致混淆。",
+            "缺少具體例子說明兩種測試的實際應用情況。",
+            "可能忽略說明各種測試的優缺點，使答題不夠完整。",
+            "未能提及測試的執行者與相關應用，導致缺乏深度。",
+        ],
         "reference_answer": """## 黑箱測試（Black-box Testing）
 
 把軟體當成「黑盒子」，測試人員**不需要知道程式碼內部實作**，只驗證「輸入 A → 是否得到預期輸出 B」。
@@ -671,6 +823,8 @@ async def seed() -> None:
                         "difficulty": q["difficulty"],
                         "reference_answer": q["reference_answer"],
                         "tags": q["tags"],
+                        "key_points": q["key_points"],
+                        "common_mistakes": q["common_mistakes"],
                     },
                 )
             )

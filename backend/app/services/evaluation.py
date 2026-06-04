@@ -20,52 +20,87 @@ class EvaluationResult(BaseModel):
 SYSTEM_PROMPT_TEMPLATE = """你是一位嚴格的資深後端工程師面試官，正在評估應試者的技術回答。請全程使用繁體中文。
 
 題目：{question}
-參考答案：{reference_answer}
+難度：{difficulty}
+
+核心評分要點（缺一項即明顯扣分，core）：
+{core_points_block}
+
+加分要點（提到能往 85+ 推，bonus）：
+{bonus_points_block}
+
+常見誤區（應試者若落入應於 missing_points 指出，並作為扣分依據）：
+{common_mistakes_block}
+
+完整參考答案（產 ideal_answer 時參考，不要逐項對照評分）：
+{reference_answer}
+
 應試者回答：{transcript}
 
-請嚴格評估並只回傳一個 JSON 物件。所有自然語言文字都必須使用繁體中文，即使應試者回答中混有英文，也不得把摘要、待改善、優勢 / 下一步或完整回答建議翻譯成英文。
-JSON 必須包含以下欄位：
-- score: 整數 0-100（整體品質分數）
-- summary: 字串（2-3 句繁體中文，作為「AI 詳細反饋」）
-- missing_points: 字串陣列（繁體中文，作為「待改善」，列出應試者未提及或說明不足的重要知識點）
-- next_focus: 字串陣列（繁體中文，作為「優勢 / 下一步」，先指出回答中的具體優勢，再給下一步改進方向）
-- ideal_answer: 字串（繁體中文，作為「正確完整回答建議」，根據題目與參考答案提供一份完整、可直接學習的建議回答）
-- provider: 字串（你的 provider 名稱）
-- model: 字串（使用的模型名稱）
+請嚴格評估並只回傳一個 JSON 物件，所有自然語言文字使用繁體中文。
+JSON 必須包含：score / summary / missing_points / next_focus / ideal_answer / provider / model。
 
-評估流程（先在心中完成，不要輸出這些中間步驟）：
-1. 逐項比對「參考答案」與「應試者回答」的核心知識點。
-2. 先確認應試者已明確提到的內容與具體例子；已明確提到或合理等價表達的內容，不得列入 missing_points。
-3. 若應試者已提供兩個以上具體例子，不得泛稱缺少具體範例；只能指出哪些例子不夠精準、缺少哪一類典型例子，或缺少工程取捨。
-4. missing_points 只能列真正未提及、明顯錯誤或說明不足的重點；每一點都要能從應試者回答中找到證據。
-5. summary 必須同時反映「已答對的重點」與「真正需要補強的地方」，避免套版批評。
-6. ideal_answer 應提供一份比參考答案更適合學習的完整回答；可以修正參考答案不足之處，但不要聲稱應試者沒提到他其實已經提到的內容。
+評估流程（在心中完成，不輸出）：
+1. 逐項對照「核心評分要點」與「加分要點」，標記應試者是否提及（同義或合理等價表達視為提及）。
+2. 已明確提及的內容不得列入 missing_points。
+3. 檢查應試者是否落入「常見誤區」；若有，列入 missing_points 並具體指出誤區內容。
+4. summary 必須同時反映「已答對的重點」與「真正需要補強的地方」，避免套版批評。
+5. ideal_answer 提供一份比參考答案更適合學習的完整回答；不得聲稱應試者沒提到他其實已提到的內容。
 
-嚴格評分標準（請務必遵守）：
-- 90-100：優秀——涵蓋所有重點且有深度、有具體範例、能說明取捨
-- 80-89：良好——涵蓋主要重點且有例子，但部分定義、邊界條件或工程取捨不夠精準
-- 70-79：尚可——涵蓋基礎知識，但遺漏一個以上的重要概念，或例子明顯不足
-- 60-69：不足——有明顯知識缺口或概念模糊不清
-- 60以下：差——有嚴重錯誤或回答極度不完整
+評分校準（綁定 key_points 覆蓋率）：
+- 90-100：涵蓋所有 core + 多數 bonus + 具體例子 / 工程取捨
+- 80-89：涵蓋所有 core + 部分 bonus，或 core 全到位但深度略不足
+- 70-79：缺 1 個 core，或所有 core 都提及但極度淺薄
+- 60-69：缺 2+ 個 core，或落入 1 個以上常見誤區
+- 60 以下：偏題 / 嚴重錯誤 / 多數 core 未提及
 
-分數校準：
-- 90+：回答完整、精準、有多個正確例子，並能說明實務取捨或常見陷阱。
-- 80-88：主要概念完整、例子充足，但部分表達不精準、深度不足，或工程取捨說明較薄弱。
-- 70-79：能說出基礎定義或列舉部分項目，但缺少關鍵定義、典型例子，或有數個概念混淆。
-- 若回答已涵蓋題目要求的大部分核心項目，不要只因為口語化或少數用詞不精準就壓到 75 分以下。
-- 若回答缺乏範例、明顯偏題或遺漏多個核心概念，才應落在 75 分以下。"""
+難度校準（覆蓋上面校準）：
+- easy：core 全到位即可給 85+，不強求 bonus
+- medium：core 全到位 + 至少 1 個 bonus 才給 85+
+- hard：core 全到位 + 多數 bonus + 明確工程取捨 才給 85+
+
+evidence-aligned 規則（保留）：
+- 若應試者已提供兩個以上具體例子，不得泛稱缺少具體範例；只能指出哪些例子不夠精準。
+- missing_points 每一點都要能從應試者回答中找到證據（未提及 / 錯誤 / 說明不足）。"""
 
 
 class EvaluationProvider(ABC):
     @abstractmethod
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         pass
 
-    def _build_prompt(self, question: str, reference_answer: str, transcript: str) -> str:
+    def _build_prompt(
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
+    ) -> str:
+        core = [kp["point"] for kp in key_points if kp["tier"] == "core"]
+        bonus = [kp["point"] for kp in key_points if kp["tier"] == "bonus"]
+
+        def _bulleted(items: list[str], fallback: str) -> str:
+            if not items:
+                return f"- （{fallback}）"
+            return "\n".join(f"- {item}" for item in items)
+
         return SYSTEM_PROMPT_TEMPLATE.format(
             question=question,
+            difficulty=difficulty,
+            core_points_block=_bulleted(core, "本題未提供核心要點"),
+            bonus_points_block=_bulleted(bonus, "本題未提供加分要點"),
+            common_mistakes_block=_bulleted(common_mistakes, "本題未提供常見誤區"),
             reference_answer=reference_answer,
             transcript=transcript,
         )
@@ -113,7 +148,14 @@ class OpenAIEvaluationProvider(EvaluationProvider):
     MODEL = "gpt-4o-mini"
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("openai", self.MODEL, transcript)
@@ -121,7 +163,14 @@ class OpenAIEvaluationProvider(EvaluationProvider):
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=settings.openai_api_key)
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         response = await client.chat.completions.create(
             model=self.MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -161,7 +210,14 @@ class ClaudeEvaluationProvider(EvaluationProvider):
     }
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("claude", self.MODEL, transcript)
@@ -169,7 +225,14 @@ class ClaudeEvaluationProvider(EvaluationProvider):
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         message = await client.messages.create(
             model=self.MODEL,
             max_tokens=2048,
@@ -192,7 +255,14 @@ class GeminiEvaluationProvider(EvaluationProvider):
     MODEL = "gemini-2.5-flash"
 
     async def evaluate(
-        self, question: str, reference_answer: str, transcript: str
+        self,
+        question: str,
+        reference_answer: str,
+        transcript: str,
+        *,
+        difficulty: str,
+        key_points: list[dict],
+        common_mistakes: list[str],
     ) -> EvaluationResult:
         if settings.evaluation_offline_mode:
             return self._offline_result("gemini", self.MODEL, transcript)
@@ -208,7 +278,14 @@ class GeminiEvaluationProvider(EvaluationProvider):
                 response_mime_type="application/json"
             ),
         )
-        prompt = self._build_prompt(question, reference_answer, transcript)
+        prompt = self._build_prompt(
+            question,
+            reference_answer,
+            transcript,
+            difficulty=difficulty,
+            key_points=key_points,
+            common_mistakes=common_mistakes,
+        )
         response = await asyncio.to_thread(model.generate_content, prompt)
         raw = response.text if response.text else "{}"
         return self._parse_result(raw, "gemini", self.MODEL)

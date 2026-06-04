@@ -43,6 +43,15 @@ Append a new dict **before** the closing `]` of the `QUESTIONS` list:
     "category": "<category>",
     "difficulty": "<easy|medium|hard>",
     "tags": ["tag1", "tag2"],
+    "key_points": [
+        {"point": "...", "tier": "core"},
+        {"point": "...", "tier": "core"},
+        {"point": "...", "tier": "bonus"},
+    ],
+    "common_mistakes": [
+        "...",
+        "...",
+    ],
     "reference_answer": """...""",
 },
 ```
@@ -54,13 +63,27 @@ Append a new dict **before** the closing `]` of the `QUESTIONS` list:
 - `medium` — requires explanation with examples (time complexity, JWT flow)
 - `hard` — design & trade-offs required (race condition strategies, distributed lock)
 
-### 4. Write the reference answer
+### 4. 從文章萃取三組內容
 
-**Do:** Extract the key framework (tables, code snippets, decision criteria) from the article in 150–300 words.
+#### 4a. key_points（核心評分要點）
+從文章主要 H2/H3 段落、表格與決策準則中萃取，每項 1-2 句、可作為「評分能否打勾」的具體陳述。
 
-**Do not:** Copy the article verbatim. Skip intros, outros, and references sections.
+- 標 `core`：缺一個就明顯扣分（題目的「主幹」概念）
+- 標 `bonus`：提到能往 85+ 推（深度、工程取捨、具體例子）
 
-Structure that works well:
+數量參考：core 4-8 個、bonus 2-4 個。
+
+#### 4b. common_mistakes（常見誤區）
+從文章「注意事項 / 常見錯誤 / 反例」段落，或對照部落格上的反模式段落擷取。每項描述「應試者會犯什麼錯」而非「該怎麼做」。
+
+數量參考：2-5 個。
+
+#### 4c. reference_answer
+仍寫成 150-300 字的 markdown，但角色改變：**不再是 LLM 評分的依據，而是產生 ideal_answer 的素材**。可比 key_points 更敘述化、有 code snippet。
+
+注意：reference_answer 與 key_points 不要互相重複；reference 用「為什麼 / 怎麼用」敘事，key_points 用「該講什麼」清單。
+
+Structure that works well for reference_answer:
 ```
 ## 核心觀念 / Core Pattern
 Brief definition (1–3 sentences)
@@ -69,7 +92,7 @@ Brief definition (1–3 sentences)
 | 方法 | 優點 | 缺點 | 適用場景 |
 
 ## Code Example (if central to the topic)
-```code```
+` `` `code` `` `
 
 ## 實務要點
 2–4 bullet points
@@ -119,3 +142,6 @@ git push origin main
 | Copying article verbatim | Write a synthesized reference answer (key points only) |
 | Forgetting `uuid.uuid4()` for `id` | `id` must be generated at runtime, not a hardcoded UUID string |
 | Wrong category string | Check existing categories in the table above before adding a new one |
+| 把 reference_answer 整段抄成 key_points | key_points 是清單條目，不是段落；每條獨立可被打勾 |
+| 全部 key_points 都標 core | 沒有 bonus 會讓 90+ 分無法達成；要區分「主幹」與「深度加分」 |
+| common_mistakes 寫成「應該怎麼做」 | 應描述「應試者會犯什麼錯」，例如「混淆 A 與 B」「以為 X 一定比 Y 快」 |

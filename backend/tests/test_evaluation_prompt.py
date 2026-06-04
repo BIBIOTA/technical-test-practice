@@ -1,11 +1,11 @@
 import unittest
 
-from app.services.evaluation import OpenAIEvaluationProvider
+from app.services.evaluation import ClaudeEvaluationProvider
 
 
-class EvaluationPromptTest(unittest.TestCase):
+class TestEvaluationPrompt(unittest.TestCase):
     def setUp(self) -> None:
-        self.provider = OpenAIEvaluationProvider()
+        self.provider = ClaudeEvaluationProvider()
 
     def test_prompt_requires_evidence_aligned_feedback(self) -> None:
         prompt = self.provider._build_prompt(
@@ -16,10 +16,14 @@ class EvaluationPromptTest(unittest.TestCase):
                 "我會舉例 O(1)、二分搜尋 O(log n)、迴圈 O(n)、排序 O(n log n)、"
                 "巢狀迴圈 O(n^2)、費氏數列 O(2^n)、排列組合 O(n!)。"
             ),
+            difficulty="medium",
+            key_points=[
+                {"point": "Big O 描述執行時間趨勢", "tier": "core"},
+            ],
+            common_mistakes=[],
         )
 
-        self.assertIn("逐項比對", prompt)
-        self.assertIn("已明確提到", prompt)
+        self.assertIn("已明確提及", prompt)
         self.assertIn("不得列入 missing_points", prompt)
         self.assertIn("不得泛稱缺少具體範例", prompt)
 
@@ -28,11 +32,52 @@ class EvaluationPromptTest(unittest.TestCase):
             question="解釋時間複雜度與 Big O。",
             reference_answer="完整回答需要定義、常見級別、例子與工程取捨。",
             transcript="回答涵蓋定義、Big O、常見級別與多個例子，但部分用語不精準。",
+            difficulty="medium",
+            key_points=[{"point": "定義", "tier": "core"}],
+            common_mistakes=[],
         )
 
-        self.assertIn("80-88", prompt)
-        self.assertIn("主要概念完整、例子充足", prompt)
+        self.assertIn("80-89", prompt)
+        self.assertIn("涵蓋所有 core + 部分 bonus", prompt)
         self.assertNotIn("大多數回答應落在 65-80 分", prompt)
+
+    def test_prompt_includes_difficulty_and_rubric_blocks(self) -> None:
+        prompt = self.provider._build_prompt(
+            question="解釋時間複雜度。",
+            reference_answer="Big O 描述執行時間隨 n 的成長。",
+            transcript="時間複雜度可以用 Big O 表示。",
+            difficulty="medium",
+            key_points=[
+                {"point": "Big O 描述執行時間隨 n 的成長", "tier": "core"},
+                {"point": "用 hash table 把 O(n^2) 降為 O(n)", "tier": "bonus"},
+            ],
+            common_mistakes=["混淆時間複雜度與毫秒數"],
+        )
+
+        self.assertIn("難度：medium", prompt)
+        self.assertIn("核心評分要點", prompt)
+        self.assertIn("- Big O 描述執行時間隨 n 的成長", prompt)
+        self.assertIn("加分要點", prompt)
+        self.assertIn("- 用 hash table 把 O(n^2) 降為 O(n)", prompt)
+        self.assertIn("常見誤區", prompt)
+        self.assertIn("- 混淆時間複雜度與毫秒數", prompt)
+        self.assertIn("難度校準", prompt)
+        self.assertIn("easy：core 全到位即可給 85+", prompt)
+        self.assertIn("medium：core 全到位 + 至少 1 個 bonus", prompt)
+        self.assertIn("hard：core 全到位 + 多數 bonus", prompt)
+
+    def test_prompt_falls_back_when_rubric_empty(self) -> None:
+        prompt = self.provider._build_prompt(
+            question="未補資料的題目。",
+            reference_answer="reference",
+            transcript="answer",
+            difficulty="easy",
+            key_points=[],
+            common_mistakes=[],
+        )
+        self.assertIn("本題未提供核心要點", prompt)
+        self.assertIn("本題未提供加分要點", prompt)
+        self.assertIn("本題未提供常見誤區", prompt)
 
 
 if __name__ == "__main__":
