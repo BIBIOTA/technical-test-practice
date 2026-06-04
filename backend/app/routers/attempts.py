@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -13,6 +14,8 @@ from app.models.question import Question
 from app.services.evaluation import get_provider
 from app.services.sm2 import get_or_create_sm2_state, update_sm2
 from app.services.transcript import normalize_transcript
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
 
@@ -112,8 +115,18 @@ async def _run_evaluation(attempt_id: uuid.UUID) -> None:
             update_sm2(sm2_state, evaluation.score)
 
             await db.commit()
-        except Exception:
+        except Exception as exc:
+            logger.exception(
+                "Evaluation failed for attempt %s (provider=%s)",
+                attempt_id,
+                session.eval_provider,
+            )
             attempt.status = "failed"
+            attempt.evaluation = {
+                "error": str(exc),
+                "exception_type": type(exc).__name__,
+                "provider": "system",
+            }
             await db.commit()
 
 
