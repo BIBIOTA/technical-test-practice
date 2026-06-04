@@ -793,6 +793,107 @@ Message Queue（MQ，如 RabbitMQ、Kafka）是一個傳遞訊息的中介軟體
 | PHP | PHPStan、Psalm |
 | 跨語言 | SonarQube、Snyk |""",
     },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "36e7c329-f14b-8001-a111-csrf00000001",
+        "text": "什麼是 CSRF 攻擊？請說明攻擊流程、影響與常見防護方式。",
+        "category": "security",
+        "difficulty": "medium",
+        "tags": ["security", "web", "csrf", "authentication"],
+        "key_points": [
+            {"point": "CSRF 是利用使用者已登入狀態，誘使瀏覽器對受害網站送出非預期請求。", "tier": "core"},
+            {"point": "攻擊成立的關鍵在於瀏覽器會自動帶上 Cookie 或其他既有憑證。", "tier": "core"},
+            {"point": "高風險操作若只靠 Cookie session 且缺少請求驗證，容易受 CSRF 影響。", "tier": "core"},
+            {"point": "防護方式包含 CSRF token、SameSite Cookie、檢查 Origin/Referer 與要求重新驗證。", "tier": "core"},
+            {"point": "說明 CSRF 與 XSS 的差異：CSRF 借用受害者身分送請求，XSS 是在頁面執行惡意腳本。", "tier": "bonus"},
+            {"point": "提到 GET 應避免產生副作用，狀態變更應使用合適 HTTP method 並搭配驗證。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "把 CSRF 誤解成竊取密碼或直接讀取回應內容。",
+            "只回答使用 HTTPS 就能防 CSRF，忽略 HTTPS 不會阻止瀏覽器自動帶 Cookie。",
+            "混淆 CSRF 與 XSS，沒有說明兩者攻擊面不同。",
+            "只提 CSRF token，未補充 SameSite Cookie、Origin/Referer 檢查等防線。",
+        ],
+        "reference_answer": """CSRF（Cross-Site Request Forgery，跨站請求偽造）是指攻擊者誘導已登入某網站的使用者，在不知情的情況下透過瀏覽器對該網站送出請求。
+
+核心原因是：瀏覽器在請求同一個站台時，通常會自動帶上 Cookie session。伺服器如果只看到「這個請求帶有合法 Cookie」，卻沒有確認請求是否真的由使用者在本站頁面主動發出，就可能執行錯誤操作。
+
+## 攻擊流程
+
+1. 使用者已登入受害網站，例如後台、銀行或管理系統。
+2. 攻擊者讓使用者點擊惡意連結，或載入含有惡意表單、圖片、script 的頁面。
+3. 使用者瀏覽器向受害網站送出請求，並自動帶上既有 Cookie。
+4. 若受害網站缺少 CSRF 防護，可能把這個請求視為合法操作。
+
+## 可能影響
+
+CSRF 通常用來執行「狀態改變」操作，例如修改 email、變更密碼、轉帳、刪除資料、發送邀請、調整權限等。
+
+它通常不是直接讀取受害網站資料，因為同源政策會限制攻擊者讀取回應；但攻擊者不一定需要讀回應，只要能讓伺服器執行副作用就可能造成傷害。
+
+## 常見防護
+
+- CSRF Token：表單或 API 請求必須附帶攻擊者無法預測的 token，伺服器端驗證。
+- SameSite Cookie：設定 `SameSite=Lax` 或 `Strict`，降低跨站請求自動帶 Cookie 的機會。
+- Origin / Referer 檢查：對高風險操作驗證請求來源。
+- GET 不做狀態改變：GET 應保持安全與冪等，避免點連結就能觸發副作用。
+- 高風險操作重新驗證：例如要求密碼、OTP 或二次確認。
+
+## 與 XSS 的差異
+
+CSRF 是「借用受害者已登入身分送請求」；XSS 則是「讓惡意 JavaScript 在受害網站頁面中執行」。XSS 通常比 CSRF 更危險，因為它可能讀取頁面內容、操作 DOM，甚至取得或濫用 token。""",
+    },
+    {
+        "id": uuid.uuid4(),
+        "notion_id": "36e7c329-f14b-8002-a222-xdd000000002",
+        "text": "什麼是 XSS 攻擊？請說明攻擊類型、影響與常見防護方式。",
+        "category": "security",
+        "difficulty": "medium",
+        "tags": ["security", "web", "xss", "frontend"],
+        "key_points": [
+            {"point": "XSS 是攻擊者將惡意 JavaScript 注入受信任網站，讓使用者瀏覽器執行。", "tier": "core"},
+            {"point": "能說明 Stored、Reflected、DOM-based XSS 的差異。", "tier": "core"},
+            {"point": "能說明 XSS 可能造成 session 竊取、冒用操作、畫面竄改或釣魚。", "tier": "core"},
+            {"point": "防護方式包含依 context 輸出編碼、避免插入未信任 HTML、CSP 與安全 Cookie 設定。", "tier": "core"},
+            {"point": "能說明輸入驗證有幫助，但不能取代輸出編碼。", "tier": "bonus"},
+            {"point": "能補充前端框架自動 escaping 的限制，例如仍需避免危險 API。", "tier": "bonus"},
+        ],
+        "common_mistakes": [
+            "把 XSS 誤解成單純的 SQL injection 或 CSRF。",
+            "只說過濾特殊字元，沒有提到輸出編碼與不同輸出 context。",
+            "以為使用 React、Vue 等框架就完全不會有 XSS。",
+            "忽略 `innerHTML`、第三方 HTML、Markdown renderer 等常見風險來源。",
+        ],
+        "reference_answer": """XSS（Cross-Site Scripting，跨站腳本攻擊）是攻擊者把惡意 JavaScript 注入到受信任網站中，讓其他使用者的瀏覽器執行該腳本。
+
+XSS 的危險在於：惡意程式是在受害網站的網域與頁面情境中執行，可能讀取頁面資料、操作 DOM、發送 API 請求，或引導使用者進入釣魚流程。
+
+## 常見類型
+
+- Stored XSS：惡意內容被存進資料庫，其他使用者瀏覽頁面時觸發。
+- Reflected XSS：惡意內容透過 URL 或表單立即反射到頁面。
+- DOM-based XSS：前端 JavaScript 不安全地處理資料，導致腳本在 DOM 中執行。
+
+## 可能影響
+
+- 竊取或濫用 session 與 token。
+- 代替使用者操作頁面。
+- 竄改畫面內容或導向釣魚流程。
+- 讀取頁面上的敏感資料。
+
+## 常見防護
+
+- 依輸出 context 做正確編碼，例如 HTML body、HTML attribute、URL、JavaScript string 各自規則不同。
+- 避免使用 `innerHTML` 注入未信任內容。
+- 對 Markdown、富文字編輯器、第三方 HTML 做 sanitization。
+- 設定 Content Security Policy（CSP），降低腳本注入後的傷害。
+- Cookie 設定 `HttpOnly`、`Secure`、`SameSite`，降低 token 被腳本讀取或濫用的風險。
+- 做輸入驗證與長度限制，但不要只依賴輸入驗證，因為真正關鍵是輸出時不能讓未信任資料變成可執行腳本。
+
+## 與 CSRF 的差異
+
+XSS 是讓惡意腳本在受害網站頁面中執行；CSRF 是借用使用者已登入狀態送出非預期請求。XSS 通常能做更多事，甚至可以繞過部分 CSRF 防護，因此必須優先修補。""",
+    },
 ]
 
 
