@@ -19,6 +19,7 @@ class Attempt(Base):
         UUID(as_uuid=True), ForeignKey("questions.id"), nullable=False
     )
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="pending_evaluation"
     )  # pending_evaluation|completed|failed

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import attempts, questions, realtime, sessions
+from app.routers import attempts, debug, questions, realtime, sessions
 
 app = FastAPI(title="Interview Practice API")
 
@@ -16,6 +16,7 @@ app.include_router(sessions.router)
 app.include_router(questions.router)
 app.include_router(attempts.router)
 app.include_router(realtime.router)
+app.include_router(debug.router)
 
 
 @app.get("/health")

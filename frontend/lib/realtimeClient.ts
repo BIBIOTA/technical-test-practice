@@ -3,6 +3,20 @@
 import { createAttempt, createClientSecret, getAttemptSummary, getNextQuestion, pollAttemptResult, type NextQuestion } from "./api";
 import { ApiError } from "./errors";
 
+const DEBUG_TOKEN = process.env.NEXT_PUBLIC_INTERVIEW_TOKEN ?? process.env.INTERVIEW_TOKEN ?? "";
+
+function sendDebugLog(event: string, data: object): void {
+  console.log(`[transcript-debug] ${event}`, data);
+  void fetch("/api/debug/transcript-log", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DEBUG_TOKEN}`,
+    },
+    body: JSON.stringify({ event, data }),
+  }).catch(() => {});
+}
+
 export interface TranscriptMessage {
   role: "ai" | "user";
   text: string;
@@ -39,6 +53,7 @@ export class RealtimeClient {
   private completedUserTranscripts: string[] = [];
   private functionCallBuffers = new Map<string, string>();
   private hasSubmittedAnswer = false;
+  private submitCommitAt: number | null = null;
   // Tracks that WE sent response.create, so we can cancel any response the
   // server auto-generates via VAD before the user clicks Submit.
   private pendingResponseCreate = false;
@@ -59,6 +74,12 @@ export class RealtimeClient {
 
   async connect(providedStream?: MediaStream): Promise<void> {
     this.callbacks.onStatusChange("connecting");
+
+    sendDebugLog("session_start", {
+      sessionId: this.sessionId,
+      mode: this.mode,
+      initialQuestionId: this.initialQuestion?.question_id ?? null,
+    });
 
     const { client_secret } = await createClientSecret(this.sessionId);
 
@@ -187,6 +208,14 @@ export class RealtimeClient {
       },
     });
     this.sendEvent({ type: "input_audio_buffer.commit" });
+    this.submitCommitAt = Date.now();
+    sendDebugLog("submit/commit", {
+      sessionId: this.sessionId,
+      at: this.submitCommitAt,
+      chunksAtCommit: this.completedUserTranscripts.length,
+      charsAtCommit: this.completedUserTranscripts.join("").length,
+      bufferAtCommit: [...this.completedUserTranscripts],
+    });
     this.sendResponseCreate();
   }
 
@@ -239,8 +268,17 @@ export class RealtimeClient {
 
     if (type === "conversation.item.input_audio_transcription.completed") {
       const transcript = event.transcript as string;
-      if (transcript.trim()) {
-        this.completedUserTranscripts.push(transcript.trim());
+      const trimmed = transcript.trim();
+      const msSinceCommit = this.submitCommitAt ? Date.now() - this.submitCommitAt : null;
+      sendDebugLog("transcription.completed", {
+        sessionId: this.sessionId,
+        chunkIndex: this.completedUserTranscripts.length,
+        text: trimmed,
+        chars: trimmed.length,
+        msSinceCommit,
+      });
+      if (trimmed) {
+        this.completedUserTranscripts.push(trimmed);
       }
     }
 
@@ -278,6 +316,7 @@ export class RealtimeClient {
         this.currentQuestionId = q.question_id;
         this.completedUserTranscripts = [];
         this.hasSubmittedAnswer = false;
+        this.submitCommitAt = null;
         if (!this.initialQuestion) {
           this.callbacks.onQuestion({
             question_id: q.question_id,
@@ -288,15 +327,40 @@ export class RealtimeClient {
         }
         output = q;
       } else if (name === "mark_answer_completed") {
-        const capturedTranscript = this.completedUserTranscripts.join(" ").trim();
-        const transcript = capturedTranscript || String(args.transcript ?? "").trim();
+        const localTranscript = this.completedUserTranscripts.join(" ").trim();
+        const aiTranscript = String(args.transcript ?? "").trim();
+        const transcript = aiTranscript.length > localTranscript.length
+          ? aiTranscript
+          : (localTranscript || aiTranscript);
+        const usingSource = transcript === aiTranscript && aiTranscript.length > 0
+          ? (localTranscript.length > 0 ? "ai (longer)" : "ai (only)")
+          : "local";
+        sendDebugLog("mark_answer_completed", {
+          sessionId: this.sessionId,
+          msSinceCommit: this.submitCommitAt ? Date.now() - this.submitCommitAt : null,
+          localChunks: this.completedUserTranscripts.length,
+          localChars: localTranscript.length,
+          localText: localTranscript,
+          aiChars: aiTranscript.length,
+          aiText: aiTranscript,
+          using: usingSource,
+        });
         const attempt = await createAttempt(
           this.sessionId,
           this.currentQuestionId ?? args.question_id ?? "",
           transcript
         );
+        sendDebugLog("backend_response", {
+          sessionId: this.sessionId,
+          sentChars: transcript.length,
+          receivedChars: (attempt.transcript ?? "").length,
+          delta: (attempt.transcript ?? "").length - transcript.length,
+          sentText: transcript,
+          receivedText: attempt.transcript,
+        });
         this.currentAttemptId = attempt.attempt_id;
         this.completedUserTranscripts = [];
+        this.submitCommitAt = null;
         if (attempt.transcript) {
           this.callbacks.onTranscript({ role: "user", text: attempt.transcript });
         }

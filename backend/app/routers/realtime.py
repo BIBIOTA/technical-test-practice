@@ -154,7 +154,22 @@ def _build_realtime_session_config(mode: str) -> dict:
         "tool_choice": "auto",
         "audio": {
             "input": {
-                "transcription": {"model": "gpt-4o-transcribe", "language": "zh"},
+                "transcription": {
+                    "model": "gpt-4o-transcribe",
+                    "language": "zh",
+                    "prompt": (
+                        "這是一場後端工程師中文技術面試，應試者使用台灣繁體中文回答，"
+                        "常會在中文句中混入以下英文技術術語："
+                        "connection pool, select for update, transaction, lock, deadlock, "
+                        "REST API, GraphQL, SQL, NoSQL, index, cache, Redis, Kafka, "
+                        "rate limiting, OAuth, JWT, CSRF, XSS, SQL injection, "
+                        "JavaScript, TypeScript, Python, FastAPI, Django, PostgreSQL, "
+                        "Docker, Kubernetes, microservice, load balancer, "
+                        "悲觀鎖, 樂觀鎖, 階乘, O(1), O(n), O(log n)。"
+                        "請完整保留英文術語的原文拼寫，不要翻譯成中文、不要替換成其他相近詞、"
+                        "不要轉成拼音或假名。聽不清楚時保留原狀，不要猜測。"
+                    ),
+                },
             },
             "output": {"voice": "cedar"},
         },

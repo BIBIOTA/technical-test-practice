@@ -33,11 +33,13 @@ async def create_attempt(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(verify_token),
 ) -> dict:
-    cleaned = await normalize_transcript(body.transcript or "")
+    raw = body.transcript or ""
+    cleaned = await normalize_transcript(raw)
     attempt = Attempt(
         session_id=body.session_id,
         question_id=body.question_id,
         transcript=cleaned,
+        raw_transcript=raw if raw else None,
         status="pending_evaluation",
     )
     db.add(attempt)
