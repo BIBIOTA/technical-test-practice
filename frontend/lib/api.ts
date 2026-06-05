@@ -64,6 +64,7 @@ export interface NextQuestion {
   category: string;
   difficulty: string;
   tags: string[];
+  transcription_keywords: string[];
   sm2: {
     ease_factor: number | null;
     interval_days: number | null;
@@ -184,10 +185,17 @@ export interface ClientSecret {
   openai_session_id: string;
 }
 
-export function createClientSecret(sessionId: string): Promise<ClientSecret> {
+export function createClientSecret(
+  sessionId: string,
+  pinnedQuestionId?: string,
+): Promise<ClientSecret> {
+  const body: Record<string, string> = { session_id: sessionId };
+  if (pinnedQuestionId) {
+    body.pinned_question_id = pinnedQuestionId;
+  }
   return apiFetch("/realtime/client-secret", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify(body),
   });
 }
 
