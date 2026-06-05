@@ -25,6 +25,12 @@ class Question(Base):
     common_mistakes: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, server_default=sa_text("'{}'::text[]"), default=list
     )
+    transcription_keywords: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        nullable=False,
+        server_default=sa_text("'{}'::text[]"),
+        default=list,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

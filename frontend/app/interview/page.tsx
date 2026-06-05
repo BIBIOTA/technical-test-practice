@@ -139,6 +139,7 @@ function InterviewContent() {
           category: q.category,
           difficulty: q.difficulty,
           tags: [],
+          transcription_keywords: [],
           sm2: { ease_factor: null, interval_days: null, next_review_at: null, last_score: null },
         });
         setQuestionIndex((i) => i + 1);

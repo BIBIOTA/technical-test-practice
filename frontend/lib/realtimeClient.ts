@@ -2,6 +2,7 @@
 
 import { createAttempt, createClientSecret, getAttemptSummary, getNextQuestion, pollAttemptResult, type NextQuestion } from "./api";
 import { ApiError } from "./errors";
+import { buildTranscriptionPrompt } from "./transcriptionPrompt";
 
 const DEBUG_TOKEN = process.env.NEXT_PUBLIC_INTERVIEW_TOKEN ?? process.env.INTERVIEW_TOKEN ?? "";
 
@@ -81,7 +82,10 @@ export class RealtimeClient {
       initialQuestionId: this.initialQuestion?.question_id ?? null,
     });
 
-    const { client_secret } = await createClientSecret(this.sessionId);
+    const { client_secret } = await createClientSecret(
+      this.sessionId,
+      this.pinnedQuestionId ?? undefined,
+    );
 
     this.pc = new RTCPeerConnection();
 
@@ -230,6 +234,24 @@ export class RealtimeClient {
     this.sendEvent({ type: "response.create" });
   }
 
+  private updateTranscriptionKeywords(keywords: string[]): void {
+    const prompt = buildTranscriptionPrompt(keywords);
+    this.sendEvent({
+      type: "session.update",
+      session: {
+        audio: {
+          input: {
+            transcription: {
+              model: "gpt-4o-transcribe",
+              language: "zh",
+              prompt,
+            },
+          },
+        },
+      },
+    });
+  }
+
   private async handleServerEvent(event: Record<string, unknown>): Promise<void> {
     const type = event.type as string;
 
@@ -317,6 +339,7 @@ export class RealtimeClient {
         this.completedUserTranscripts = [];
         this.hasSubmittedAnswer = false;
         this.submitCommitAt = null;
+        this.updateTranscriptionKeywords(q.transcription_keywords ?? []);
         if (!this.initialQuestion) {
           this.callbacks.onQuestion({
             question_id: q.question_id,

@@ -48,6 +48,7 @@ async def get_next_question(
         "category": question["category"],
         "difficulty": question["difficulty"],
         "tags": question["tags"] or [],
+        "transcription_keywords": list(question.get("transcription_keywords") or []),
         "sm2": {
             "ease_factor": question["ease_factor"],
             "interval_days": question["interval_days"],

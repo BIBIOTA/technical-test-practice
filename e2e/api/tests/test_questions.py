@@ -11,6 +11,16 @@ def test_get_next_question(client, question_id, session_id):
     assert "sm2" in body
 
 
+def test_get_next_question_returns_transcription_keywords(client, question_with_transcription_keywords):
+    q_id, keywords = question_with_transcription_keywords
+    response = client.get(f"/questions/next?question_id={q_id}&mode=single")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["question_id"] == q_id
+    assert body["transcription_keywords"] == keywords
+
+
 def test_get_next_question_with_filters(client, question_id, session_id):
     response = client.get(
         f"/questions/next?session_id={session_id}&mode=single&category=backend&difficulty=easy"

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.deps import get_db, verify_token
 from app.models.interview_session import InterviewSession
+from app.models.question import Question
 from app.models.realtime_session import RealtimeSession
 
 router = APIRouter(prefix="/realtime", tags=["realtime"])
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/realtime", tags=["realtime"])
 
 class ClientSecretRequest(BaseModel):
     session_id: uuid.UUID
+    pinned_question_id: uuid.UUID | None = None
 
 
 @router.post("/client-secret")
@@ -31,13 +34,21 @@ async def create_client_secret(
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    from openai import AsyncOpenAI
+    keywords: list[str] = []
+    if body.pinned_question_id is not None:
+        q_result = await db.execute(
+            select(Question).where(Question.id == body.pinned_question_id)
+        )
+        question = q_result.scalar_one_or_none()
+        if question is None:
+            raise HTTPException(status_code=404, detail="Question not found")
+        keywords = list(question.transcription_keywords or [])
 
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     try:
         response = await client.realtime.client_secrets.create(
-            session=_build_realtime_session_config(session.mode)
+            session=_build_realtime_session_config(session.mode, keywords)
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
@@ -145,7 +156,21 @@ def _get_tools() -> list[dict]:
     ]
 
 
-def _build_realtime_session_config(mode: str) -> dict:
+TRANSCRIPTION_BASE_PROMPT = (
+    "這是一場後端工程師中文技術面試，應試者使用台灣繁體中文回答。"
+    "請完整保留英文術語的原文拼寫，不要翻譯成中文、不要替換成其他相近詞、"
+    "不要轉成拼音或假名。聽不清楚時保留原狀，不要猜測。"
+)
+
+
+def _build_transcription_prompt(keywords: list[str]) -> str:
+    if not keywords:
+        return TRANSCRIPTION_BASE_PROMPT
+    terms = ", ".join(keywords)
+    return f"{TRANSCRIPTION_BASE_PROMPT} 本題可能會出現的英文術語：{terms}。"
+
+
+def _build_realtime_session_config(mode: str, keywords: list[str]) -> dict:
     return {
         "type": "realtime",
         "model": "gpt-realtime-2025-08-28",
@@ -157,18 +182,7 @@ def _build_realtime_session_config(mode: str) -> dict:
                 "transcription": {
                     "model": "gpt-4o-transcribe",
                     "language": "zh",
-                    "prompt": (
-                        "這是一場後端工程師中文技術面試，應試者使用台灣繁體中文回答，"
-                        "常會在中文句中混入以下英文技術術語："
-                        "connection pool, select for update, transaction, lock, deadlock, "
-                        "REST API, GraphQL, SQL, NoSQL, index, cache, Redis, Kafka, "
-                        "rate limiting, OAuth, JWT, CSRF, XSS, SQL injection, "
-                        "JavaScript, TypeScript, Python, FastAPI, Django, PostgreSQL, "
-                        "Docker, Kubernetes, microservice, load balancer, "
-                        "悲觀鎖, 樂觀鎖, 階乘, O(1), O(n), O(log n)。"
-                        "請完整保留英文術語的原文拼寫，不要翻譯成中文、不要替換成其他相近詞、"
-                        "不要轉成拼音或假名。聽不清楚時保留原狀，不要猜測。"
-                    ),
+                    "prompt": _build_transcription_prompt(keywords),
                 },
             },
             "output": {"voice": "cedar"},

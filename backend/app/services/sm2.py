@@ -99,6 +99,7 @@ async def select_next_question(
             q.difficulty,
             q.reference_answer,
             q.tags,
+            q.transcription_keywords,
             s.ease_factor,
             s.interval_days,
             s.repetitions,
