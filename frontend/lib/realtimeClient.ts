@@ -54,6 +54,7 @@ export class RealtimeClient {
   private completedUserTranscripts: string[] = [];
   private functionCallBuffers = new Map<string, string>();
   private hasSubmittedAnswer = false;
+  private hasEmittedEvalResult = false;
   private submitCommitAt: number | null = null;
   // Tracks that WE sent response.create, so we can cancel any response the
   // server auto-generates via VAD before the user clicks Submit.
@@ -382,11 +383,16 @@ export class RealtimeClient {
           receivedText: attempt.transcript,
         });
         this.currentAttemptId = attempt.attempt_id;
+        this.hasEmittedEvalResult = false;
         this.completedUserTranscripts = [];
         this.submitCommitAt = null;
         if (attempt.transcript) {
           this.callbacks.onTranscript({ role: "user", text: attempt.transcript });
         }
+        // Drive UI display independently of whether the realtime AI follows up
+        // with get_evaluation_summary — gpt-realtime cannot reliably schedule a
+        // delayed tool call after a button-triggered submit.
+        void this.pollAndEmitEvaluation(attempt.attempt_id);
         output = attempt;
       } else if (name === "get_evaluation_summary") {
         const attemptId = args.attempt_id ?? this.currentAttemptId;
@@ -396,7 +402,10 @@ export class RealtimeClient {
           const result = await pollAttemptResult(attemptId);
           if (result.status === "completed") {
             const summary = await getAttemptSummary(attemptId);
-            this.callbacks.onEvalResult(summary);
+            if (!this.hasEmittedEvalResult) {
+              this.hasEmittedEvalResult = true;
+              this.callbacks.onEvalResult(summary);
+            }
             this.callbacks.onTranscript({ role: "ai", text: formatEvaluationFeedback(summary) });
             output = summary;
           } else {
@@ -419,6 +428,21 @@ export class RealtimeClient {
     });
 
     this.sendResponseCreate();
+  }
+
+  private async pollAndEmitEvaluation(attemptId: string): Promise<void> {
+    try {
+      const result = await pollAttemptResult(attemptId);
+      if (result.status !== "completed" || this.hasEmittedEvalResult) return;
+      const summary = await getAttemptSummary(attemptId);
+      if (this.hasEmittedEvalResult) return;
+      this.hasEmittedEvalResult = true;
+      this.callbacks.onEvalResult(summary);
+    } catch {
+      // Swallow — the 60s UI timeout in interview/page.tsx surfaces the toast,
+      // and a later get_evaluation_summary tool call from the AI can still
+      // succeed once the backend finishes.
+    }
   }
 }
 

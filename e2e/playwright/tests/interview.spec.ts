@@ -545,3 +545,100 @@ test("user voice transcript appears in left panel and eval card after submit", a
   // The transcript text now appears in both panels — confirm the second occurrence
   await expect(page.getByText("我認為需要使用索引和快取策略。").nth(1)).toBeVisible();
 });
+
+test("eval card renders even when AI never calls get_evaluation_summary", async ({ page }) => {
+  await grantMicrophone(page);
+  await mockRealtimeStartup(page);
+
+  await page.route("**/questions/next**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        question_id: "00000000-0000-0000-0000-000000000001",
+        question_text: "如何優化慢查詢？",
+        category: "資料庫",
+        difficulty: "medium",
+        tags: [],
+        sm2: { ease_factor: null, interval_days: null, next_review_at: null, last_score: null },
+      }),
+    });
+  });
+
+  await page.route("**/attempts", async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt_id: "attempt-fallback",
+        status: "pending_evaluation",
+        transcript: "用索引並檢查查詢計畫。",
+      }),
+    });
+  });
+
+  let resultCallCount = 0;
+  await page.route("**/attempts/attempt-fallback/result", async (route) => {
+    resultCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt_id: "attempt-fallback",
+        status: "completed",
+        score: 78,
+        evaluation: null,
+      }),
+    });
+  });
+
+  await page.route("**/attempts/attempt-fallback/summary", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        score: 78,
+        summary: "回答提到索引與查詢計畫，可補充慢查詢日誌與抽樣分析。",
+        missing_points: ["可補充慢查詢日誌"],
+        next_focus: ["討論查詢計畫的解讀"],
+        ideal_answer: "",
+        provider: "test",
+        model: "test-model",
+      }),
+    });
+  });
+
+  await page.goto(INTERVIEW_URL);
+  await page.getByRole("button", { name: "開始面試" }).click();
+  await page.waitForFunction(
+    () => Boolean((window as unknown as { __rtDataChannel?: unknown }).__rtDataChannel)
+  );
+
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-q",
+    name: "get_next_question",
+    arguments: JSON.stringify({ mode: "single" }),
+  });
+  await expect(page.getByRole("button", { name: "送出答案" })).not.toBeDisabled({ timeout: 3000 });
+
+  await page.getByRole("button", { name: "送出答案" }).click();
+
+  // Simulate yesterday's bug: the realtime AI calls mark_answer_completed but
+  // NEVER follows up with get_evaluation_summary.
+  await emitRealtimeEvent(page, {
+    type: "response.function_call_arguments.done",
+    call_id: "call-mark-only",
+    name: "mark_answer_completed",
+    arguments: JSON.stringify({
+      session_id: "test-session-uuid",
+      question_id: "00000000-0000-0000-0000-000000000001",
+      transcript: "用索引並檢查查詢計畫。",
+    }),
+  });
+
+  await expect(page.locator("text=AI 詳細反饋")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("78", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("評分逾時")).not.toBeVisible();
+  expect(resultCallCount).toBeGreaterThan(0);
+});
